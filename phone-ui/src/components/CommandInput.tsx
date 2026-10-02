@@ -51,7 +51,7 @@ export const CommandInput: React.FC<CommandInputProps> = ({
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             disabled={disabled || isLoading}
-            placeholder="Ask JARVIS anything (e.g. 'Jarvis, open GitHub')..."
+            placeholder="Ask IGRIS anything (e.g. 'Igris, open GitHub')..."
             className="w-full bg-slate-950/80 border border-cyan-500/30 rounded-xl pl-4 pr-10 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all font-sans disabled:opacity-50"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400/60 pointer-events-none">

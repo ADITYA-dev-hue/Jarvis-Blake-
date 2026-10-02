@@ -154,7 +154,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({
     }
 
     if (disabled) {
-      setErrorMessage('JARVIS server is offline.');
+      setErrorMessage('IGRIS server is offline.');
       return;
     }
 
@@ -211,7 +211,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({
         return (
           <div className="flex items-center gap-2 text-slate-400 font-mono text-xs tracking-wider">
             <Radio className="w-3.5 h-3.5 text-cyan-500/70" />
-            <span>JARVIS VOICE READY</span>
+            <span>IGRIS VOICE READY</span>
           </div>
         );
     }
@@ -390,7 +390,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({
           {lastResponse?.message && (
             <div>
               <span className="text-[10px] font-mono tracking-wider uppercase text-cyan-400 block flex items-center justify-between">
-                <span>JARVIS:</span>
+                <span>IGRIS:</span>
                 {settings.autoSpeakResponses && (
                   <button
                     onClick={() => ttsService.speak(lastResponse.message || '', settings.language)}

@@ -104,7 +104,7 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
           <Bot className="w-8 h-8 text-cyan-900" />
           <span>No conversation yet.</span>
           <span className="text-[11px] text-slate-600">
-            Speak or type a command to start a dialogue with JARVIS.
+            Speak or type a command to start a dialogue with IGRIS.
           </span>
         </div>
       ) : (
@@ -140,7 +140,7 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
                     <>
                       <span className="text-cyan-400 font-medium flex items-center gap-1">
                         <Bot className="w-3 h-3 text-cyan-400" />
-                        JARVIS
+                        IGRIS
                       </span>
                       {msg.action && (
                         <>

@@ -47,8 +47,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         {/* Circular Logo Image */}
         <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border-2 border-red-500 shadow-[0_0_40px_rgba(239,68,68,0.5)] bg-black">
           <img
-            src="/jarvis_blake_logo.png"
-            alt="JARVIS BLAKE"
+            src="/igris_blake_round.png"
+            alt="IGRIS BLAKE"
             className="w-full h-full object-cover"
           />
         </div>
@@ -57,7 +57,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       {/* Brand Typography */}
       <div className="flex flex-col items-center text-center px-4">
         <h1 className="font-mono text-3xl sm:text-4xl font-black tracking-widest text-white glow-text-red">
-          JARVIS
+          IGRIS
         </h1>
         <h2 className="font-mono text-sm sm:text-base font-bold tracking-[0.35em] text-red-500 mt-1 uppercase">
           B L A K E

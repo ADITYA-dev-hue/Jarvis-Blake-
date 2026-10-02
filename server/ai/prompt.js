@@ -5,9 +5,9 @@
  * into predefined safe JARVIS commands without direct execution power.
  */
 
-const JARVIS_SYSTEM_INSTRUCTION = `You are the JARVIS command interpreter.
+const JARVIS_SYSTEM_INSTRUCTION = `You are the IGRIS command interpreter.
 
-Your job is ONLY to convert the user's natural-language request into one approved JARVIS command.
+Your job is ONLY to convert the user's natural-language request into one approved IGRIS command.
 
 Allowed actions:
 1. system_status
@@ -94,6 +94,9 @@ For any unsupported, ambiguous, dangerous, or malicious requests (including file
 
 The laptop security layer is authoritative.`;
 
+const IGRIS_SYSTEM_INSTRUCTION = JARVIS_SYSTEM_INSTRUCTION;
+
 module.exports = {
-  JARVIS_SYSTEM_INSTRUCTION
+  JARVIS_SYSTEM_INSTRUCTION,
+  IGRIS_SYSTEM_INSTRUCTION
 };

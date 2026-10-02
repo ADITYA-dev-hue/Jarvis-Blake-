@@ -144,7 +144,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
             </div>
 
             <p className="text-xs text-slate-400 font-mono leading-relaxed">
-              Folders are created strictly within the JARVIS workspace. Absolute paths, drive letters, and traversal (..) are blocked.
+              Folders are created strictly within the IGRIS workspace. Absolute paths, drive letters, and traversal (..) are blocked.
             </p>
 
             <form onSubmit={handleCreateFolder} className="flex flex-col gap-3">

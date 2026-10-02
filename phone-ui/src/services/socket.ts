@@ -9,11 +9,11 @@ import {
 } from '../types/command';
 import { SystemMetrics } from '../types/system';
 
-// Default configuration from environment variables
-const SERVER_URL = import.meta.env.VITE_JARVIS_SERVER_URL || 
+// Default configuration from environment variables (supporting both IGRIS and legacy JARVIS)
+const SERVER_URL = import.meta.env.VITE_IGRIS_SERVER_URL || import.meta.env.VITE_JARVIS_SERVER_URL || 
   (typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://localhost:3000');
 
-const PHONE_TOKEN = import.meta.env.VITE_JARVIS_PHONE_TOKEN || 'jarvis_phone_dev_token_884192';
+const PHONE_TOKEN = import.meta.env.VITE_IGRIS_PHONE_TOKEN || import.meta.env.VITE_JARVIS_PHONE_TOKEN || 'jarvis_phone_dev_token_884192';
 
 class JarvisSocketService {
   private socket: Socket | null = null;
@@ -160,7 +160,7 @@ class JarvisSocketService {
     customCommandId?: string
   ): Promise<CommandResult> {
     if (!this.socket || !this.socket.connected) {
-      throw new Error('JARVIS server is unavailable.');
+      throw new Error('IGRIS server is unavailable.');
     }
 
     if (this.agentStatus === 'offline') {
@@ -216,7 +216,7 @@ class JarvisSocketService {
     source?: 'text' | 'voice'
   ): Promise<AiCommandResponse> {
     if (!this.socket || !this.socket.connected) {
-      throw new Error('JARVIS server is unavailable.');
+      throw new Error('IGRIS server is unavailable.');
     }
 
     return new Promise((resolve) => {
@@ -224,7 +224,7 @@ class JarvisSocketService {
         resolve({
           success: false,
           userText: text,
-          message: 'JARVIS AI is temporarily unavailable.'
+          message: 'IGRIS AI is temporarily unavailable.'
         });
       }, 10000);
 

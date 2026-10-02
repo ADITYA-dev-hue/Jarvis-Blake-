@@ -55,12 +55,20 @@ const JARVIS_DEBUG = process.env.JARVIS_DEBUG === 'true';
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const JARVIS_AUTH_TOKEN = process.env.JARVIS_AUTH_TOKEN;
-const JARVIS_PHONE_TOKEN = process.env.JARVIS_PHONE_TOKEN || 'jarvis_phone_dev_token_884192';
-const JARVIS_PHONE_ORIGIN = process.env.JARVIS_PHONE_ORIGIN || 'http://localhost:5173';
+const IGRIS_AUTH_TOKEN = process.env.IGRIS_AUTH_TOKEN || process.env.JARVIS_AUTH_TOKEN;
+const IGRIS_PHONE_TOKEN = process.env.IGRIS_PHONE_TOKEN || process.env.JARVIS_PHONE_TOKEN || 'jarvis_phone_dev_token_884192';
+const IGRIS_PHONE_ORIGIN = process.env.IGRIS_PHONE_ORIGIN || process.env.JARVIS_PHONE_ORIGIN || 'http://localhost:5173';
+const IGRIS_FRONTEND_URL = process.env.IGRIS_FRONTEND_URL || process.env.JARVIS_FRONTEND_URL;
 
-if (!JARVIS_AUTH_TOKEN) {
-  console.error('[ERROR] JARVIS_AUTH_TOKEN is not defined in environment variables!');
+// Retain legacy references for full backwards compatibility
+const JARVIS_AUTH_TOKEN = IGRIS_AUTH_TOKEN;
+const JARVIS_PHONE_TOKEN = IGRIS_PHONE_TOKEN;
+const JARVIS_PHONE_ORIGIN = IGRIS_PHONE_ORIGIN;
+const JARVIS_FRONTEND_URL = IGRIS_FRONTEND_URL;
+
+if (!IGRIS_AUTH_TOKEN || !IGRIS_AUTH_TOKEN.trim()) {
+  console.error('[ERROR] IGRIS_AUTH_TOKEN (or JARVIS_AUTH_TOKEN) is not defined in environment variables');
+  process.exit(1);
 }
 
 // Default command timeout: 5000ms (5 seconds)
@@ -70,19 +78,51 @@ const app = express();
 const server = http.createServer(app);
 
 /**
- * Origin validation helper for local dev & Wi-Fi mobile testing
+ * Origin validation helper for local dev, Render server, and Vercel mobile UI
  */
+function normalizeOrigin(urlStr) {
+  if (!urlStr) return '';
+  try {
+    return new URL(urlStr).origin.toLowerCase();
+  } catch (_) {
+    return urlStr.replace(/\/+$/, '').toLowerCase();
+  }
+}
+
 function isAllowedOrigin(origin) {
   if (!origin) return true;
-  if (origin === JARVIS_PHONE_ORIGIN || origin === 'http://localhost:5173' || origin === 'http://localhost:3000') {
+  const normalized = normalizeOrigin(origin);
+
+  // Check configured frontends (supports single URL or comma-separated list)
+  const configured = [
+    process.env.IGRIS_FRONTEND_URL,
+    process.env.IGRIS_PHONE_ORIGIN,
+    process.env.JARVIS_FRONTEND_URL,
+    process.env.JARVIS_PHONE_ORIGIN
+  ].filter(Boolean);
+
+  for (const entry of configured) {
+    const list = entry.split(',').map((s) => s.trim()).filter(Boolean);
+    for (const item of list) {
+      if (normalizeOrigin(item) === normalized) {
+        return true;
+      }
+    }
+  }
+
+  // Local development origins
+  if (normalized === 'http://localhost:5173' || normalized === 'http://localhost:3000') {
     return true;
   }
+
+  // Private network ranges for mobile Wi-Fi testing
   try {
     const url = new URL(origin);
     const host = url.hostname;
     if (host === 'localhost' || host === '127.0.0.1') return true;
     if (host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.')) return true;
   } catch (_) {}
+
   return false;
 }
 
@@ -149,7 +189,8 @@ io.use((socket, next) => {
   }
 
   if (role === 'agent') {
-    if (!JARVIS_AUTH_TOKEN || authToken !== JARVIS_AUTH_TOKEN) {
+    const validTokens = (JARVIS_AUTH_TOKEN || '').split(',').map(t => t.trim()).filter(Boolean);
+    if (validTokens.length === 0 || !validTokens.includes(authToken)) {
       return next(new Error('Authentication failed: Invalid token'));
     }
 
@@ -161,7 +202,8 @@ io.use((socket, next) => {
     };
     return next();
   } else if (role === 'phone') {
-    if (!JARVIS_PHONE_TOKEN || authToken !== JARVIS_PHONE_TOKEN) {
+    const validPhoneTokens = (JARVIS_PHONE_TOKEN || '').split(',').map(t => t.trim()).filter(Boolean);
+    if (validPhoneTokens.length === 0 || !validPhoneTokens.includes(authToken)) {
       return next(new Error('Authentication failed: Invalid phone token'));
     }
 
@@ -602,7 +644,7 @@ io.on('connection', (socket) => {
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'online',
-    service: 'JARVIS'
+    service: 'IGRIS'
   });
 });
 
@@ -700,7 +742,7 @@ app.post('/api/test-ai-command', async (req, res) => {
  * POST /api/session/clear
  */
 app.post('/api/session/clear', (req, res) => {
-  const token = req.headers['x-jarvis-token'] || req.query.token || req.body?.token;
+  const token = req.headers['x-igris-token'] || req.headers['x-jarvis-token'] || req.query.token || req.body?.token;
   if (!token || token !== JARVIS_PHONE_TOKEN) {
     return res.status(401).json({ success: false, error: "Unauthorized" });
   }
@@ -724,7 +766,7 @@ app.post('/api/session/clear', (req, res) => {
  * GET /api/session/messages
  */
 app.get('/api/session/messages', (req, res) => {
-  const token = req.headers['x-jarvis-token'] || req.query.token;
+  const token = req.headers['x-igris-token'] || req.headers['x-jarvis-token'] || req.query.token;
   if (!token || token !== JARVIS_PHONE_TOKEN) {
     return res.status(401).json({ success: false, error: "Unauthorized" });
   }
@@ -773,6 +815,19 @@ app.post('/api/test-command', async (req, res) => {
   return res.json(result);
 });
 
+// Root landing endpoint
+app.get('/', (req, res, next) => {
+  const indexHtml = path.join(phoneDistPath, 'index.html');
+  if (fs.existsSync(indexHtml)) {
+    return res.sendFile(indexHtml);
+  }
+  return res.status(200).json({
+    status: 'online',
+    service: 'IGRIS Relay Server',
+    health: '/health'
+  });
+});
+
 // SPA fallback for frontend routes
 app.get('*', (req, res, next) => {
   if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/socket.io') && fs.existsSync(path.join(phoneDistPath, 'index.html'))) {
@@ -783,7 +838,7 @@ app.get('*', (req, res, next) => {
 
 // Start listening
 server.listen(PORT, HOST, () => {
-  console.log('JARVIS Server');
+  console.log('IGRIS Server');
   console.log('------------------------------');
   console.log(`Server running on port ${PORT}`);
   console.log(`AI Model: ${GEMINI_MODEL}`);

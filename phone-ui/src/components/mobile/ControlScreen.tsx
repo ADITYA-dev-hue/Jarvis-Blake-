@@ -133,7 +133,7 @@ export const ControlScreen: React.FC<ControlScreenProps> = ({
         <div>
           <h2 className="font-mono text-base font-bold text-white tracking-wider flex items-center gap-2">
             <Sliders className="w-4 h-4 text-red-500" />
-            JARVIS CONTROL CENTER
+            IGRIS CONTROL CENTER
           </h2>
           <p className="font-mono text-[10px] text-slate-400">Safe Windows Laptop Control Subsystem</p>
         </div>
@@ -304,7 +304,7 @@ export const ControlScreen: React.FC<ControlScreenProps> = ({
             onClick={() => {
               setModalError(null);
               setFilePathInput('notes.txt');
-              setFileContentInput('Hello from JARVIS Control Center!');
+              setFileContentInput('Hello from IGRIS Control Center!');
               setActiveModal('create_text_file');
             }}
             disabled={isExecuting}

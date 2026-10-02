@@ -58,19 +58,19 @@ export const JarvisHeader: React.FC<JarvisHeaderProps> = ({
 
   return (
     <header className="relative w-full flex flex-col items-center justify-center pt-4 pb-2 text-center select-none">
-      {/* Subtle Arc Reactor HUD ring with Official JARVIS BLAKE Emblem */}
+      {/* Subtle Arc Reactor HUD ring with Official IGRIS BLAKE Emblem */}
       <div className="relative mb-3 flex items-center justify-center">
         <div className="w-16 h-16 rounded-full border border-red-500/60 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse overflow-hidden bg-black p-1">
           <img
-            src="/jarvis_blake_round.png"
-            alt="JARVIS BLAKE"
+            src="/igris_blake_round.png"
+            alt="IGRIS BLAKE"
             className="w-full h-full object-contain rounded-full shadow-[0_0_10px_rgba(239,68,68,0.7)]"
           />
         </div>
       </div>
 
       <h1 className="text-3xl sm:text-4xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-200 to-blue-500 font-mono drop-shadow-[0_0_12px_rgba(0,229,255,0.4)]">
-        J.A.R.V.I.S
+        I.G.R.I.S
       </h1>
 
       <p className="text-sm text-cyan-200/80 font-medium tracking-wide mt-1">

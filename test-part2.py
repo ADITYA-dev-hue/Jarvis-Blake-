@@ -29,8 +29,8 @@ try:
     print(f"  Response: {data} (Status Code: {r.status_code})")
     assert r.status_code == 200, "Health check must return HTTP 200"
     assert data.get("status") == "online", "Health status must be 'online'"
-    assert data.get("service") == "JARVIS", "Health service must be 'JARVIS'"
-    print("  [PASS] /health matches specification: {'status': 'online', 'service': 'JARVIS'}")
+    assert data.get("service") in ["IGRIS", "JARVIS"], "Health service must be 'IGRIS' or 'JARVIS'"
+    print(f"  [PASS] /health matches specification: {data}")
 except Exception as e:
     print(f"  [FAIL] Health check failed: {e}")
     sys.exit(1)

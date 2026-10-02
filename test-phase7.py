@@ -92,6 +92,7 @@ if not is_agent_online():
     agent_proc = subprocess.Popen(
         [PYTHON_EXE, "laptop-agent/agent.py"],
         cwd=str(BASE_DIR),
+        env={**os.environ, "IGRIS_SERVER_URL": "http://localhost:3000", "JARVIS_SERVER_URL": "http://localhost:3000"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
@@ -327,6 +328,7 @@ print("  Restarting Laptop Agent for reconnection test...", flush=True)
 agent_proc = subprocess.Popen(
     [PYTHON_EXE, "laptop-agent/agent.py"],
     cwd=str(BASE_DIR),
+    env={**os.environ, "IGRIS_SERVER_URL": "http://localhost:3000", "JARVIS_SERVER_URL": "http://localhost:3000"},
     stdout=subprocess.DEVNULL,
     stderr=subprocess.DEVNULL
 )

@@ -39,9 +39,9 @@ export function App() {
   const [aiStatus, setAiStatus] = useState<AiStatusState>('AI CONNECTING');
   const [showSplash, setShowSplash] = useState<boolean>(true);
 
-  // Dynamic Browser Tab Title - JARVIS — BLAKE
+  // Dynamic Browser Tab Title - IGRIS — BLAKE
   useEffect(() => {
-    document.title = 'JARVIS — BLAKE';
+    document.title = 'IGRIS — BLAKE';
   }, []);
 
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
@@ -100,10 +100,10 @@ export function App() {
       setConnectionState(state);
       if (state === 'CONNECTED') {
         setAiStatus('AI READY');
-        addToast('info', 'Connected to JARVIS Server');
+        addToast('info', 'Connected to IGRIS Server');
       } else if (state === 'DISCONNECTED') {
         setAiStatus('AI CONNECTING');
-        addToast('error', 'JARVIS server is unavailable.');
+        addToast('error', 'IGRIS server is unavailable.');
       } else if (state === 'ERROR') {
         setAiStatus('AI ERROR');
         addToast('error', 'Server connection error.');
@@ -136,10 +136,10 @@ export function App() {
       return 'The laptop did not respond in time.';
     }
     if (str.includes('unavailable') || str.includes('connect')) {
-      return 'JARVIS server is unavailable.';
+      return 'IGRIS server is unavailable.';
     }
     if (str.includes('disallowed') || str.includes('whitelisted') || str.includes('Security') || str.includes('forbidden')) {
-      return 'JARVIS blocked this command for security reasons.';
+      return 'IGRIS blocked this command for security reasons.';
     }
     if (str.includes('Authentication failed')) {
       return 'Phone authentication failed.';
@@ -162,7 +162,7 @@ export function App() {
     if (isExecuting) return;
 
     if (connectionState !== 'CONNECTED') {
-      const offlineMsg = 'JARVIS server is unavailable.';
+      const offlineMsg = 'IGRIS server is unavailable.';
       addToast('error', offlineMsg);
       if (source === 'voice' && voiceSettings.autoSpeakResponses) {
         ttsService.speak(offlineMsg, voiceSettings.language);
@@ -310,7 +310,7 @@ export function App() {
     if (isExecuting) return;
 
     if (connectionState !== 'CONNECTED') {
-      addToast('error', 'JARVIS server is unavailable.');
+      addToast('error', 'IGRIS server is unavailable.');
       return;
     }
 
@@ -428,7 +428,7 @@ export function App() {
         <div className="w-full h-12 bg-[#050913]/95 backdrop-blur-md border-b border-red-950/80 px-4 flex items-center justify-between text-xs z-50 sticky top-0 flex-shrink-0">
           <div className="flex items-center gap-3">
             <span className="font-mono font-bold tracking-widest text-slate-100 uppercase text-sm glow-text-red">
-              JARVIS // BLAKE
+              IGRIS // BLAKE
             </span>
             <span className="hidden sm:inline text-[10px] bg-red-950/80 text-red-400 border border-red-800/50 px-2 py-0.5 rounded font-mono font-bold">
               DUAL MULTI-VIEW ENGINE

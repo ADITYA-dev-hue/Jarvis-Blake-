@@ -134,7 +134,7 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
 
   useEffect(() => {
     const tabName = activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
-    document.title = `JARVIS — BLAKE | ${tabName}`;
+    document.title = `IGRIS — BLAKE | ${tabName}`;
   }, [activeTab]);
 
   const handleTabChange = (tab: TabType) => {
@@ -222,10 +222,10 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 pr-3 border-r border-red-900/40">
             <div className="w-6 h-6 rounded-full overflow-hidden border border-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.8)] bg-black shrink-0">
-              <img src="/favicon-32x32.png" alt="JARVIS" className="w-full h-full object-cover" />
+              <img src="/favicon-32x32.png" alt="IGRIS" className="w-full h-full object-cover" />
             </div>
             <span className="font-mono font-bold tracking-widest text-slate-100 uppercase text-sm glow-text-red">
-              JARVIS
+              IGRIS
             </span>
             <span className="text-[10px] bg-red-950/80 text-red-400 border border-red-800/50 px-1.5 py-0.2 rounded font-mono font-semibold">
               BLAKE OS v3.2
@@ -352,14 +352,14 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-red-600/30 to-black border border-red-500/60 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.3)] overflow-hidden p-0.5">
                 <img
                   src="/favicon-48x48.png"
-                  alt="JARVIS Blake Emblem"
+                  alt="IGRIS Blake Emblem"
                   className="w-full h-full object-contain rounded-md"
                 />
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono font-bold tracking-widest text-base text-slate-100 glow-text-red">
-                    JARVIS
+                    IGRIS
                   </span>
                 </div>
                 <span className="text-[9px] font-mono tracking-widest text-slate-400 uppercase">
@@ -596,11 +596,11 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                       {/* Ring 3: Fast Inner Tick Ring */}
                       <div className="absolute inset-3 rounded-full border border-red-400/30 animate-spin-slow" />
 
-                      {/* Glowing Core Center with Diamond Star & Official Jarvis Blake Emblem */}
+                      {/* Glowing Core Center with Diamond Star & Official Igris Blake Emblem */}
                       <div className="w-24 h-24 rounded-full bg-black/90 border-2 border-red-500/80 flex flex-col items-center justify-center text-center backdrop-blur-md shadow-[0_0_25px_rgba(239,68,68,0.7)] group cursor-pointer hover:border-cyan-400 transition-colors overflow-hidden p-1.5">
                         <img
-                          src="/jarvis_blake_round.png"
-                          alt="JARVIS Core Emblem"
+                          src="/igris_blake_round.png"
+                          alt="IGRIS Core Emblem"
                           className="w-full h-full object-contain rounded-full shadow-[0_0_15px_rgba(239,68,68,0.6)]"
                         />
                       </div>
@@ -1522,7 +1522,7 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
 
                     <label className="flex items-center justify-between p-3 rounded bg-black/40 border border-slate-900 text-xs font-mono text-slate-500">
                       <div>
-                        <span className="font-bold block">Standard JARVIS</span>
+                        <span className="font-bold block">Standard IGRIS</span>
                         <span className="text-[10px]">Gentle and polite butler persona</span>
                       </div>
                       <input type="radio" disabled className="accent-red-500" />
@@ -1566,7 +1566,7 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
           {/* Persistent Windows Taskbar Footer */}
           <footer className="h-10 w-full bg-[#03060c] border-t border-red-950/60 px-4 flex items-center justify-between text-[11px] font-mono text-slate-500 z-30 select-none">
             <div className="flex items-center gap-3">
-              <span className="text-red-500 font-bold">JARVIS DESKTOP</span>
+              <span className="text-red-500 font-bold">IGRIS DESKTOP</span>
               <span>•</span>
               <span>WINDOWS 11 COMPATIBLE</span>
               <span>•</span>

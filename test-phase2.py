@@ -59,7 +59,7 @@ try:
     data_health = r_health.json()
     health_ok = (r_health.status_code == 200 and
                  data_health.get("status") == "online" and
-                 data_health.get("service") == "JARVIS")
+                 data_health.get("service") in ["IGRIS", "JARVIS"])
     record("GET /health Endpoint", health_ok, str(data_health))
 except Exception as exc:
     print(f"  [FAIL] Server unreachable at {SERVER_URL}: {exc}", flush=True)

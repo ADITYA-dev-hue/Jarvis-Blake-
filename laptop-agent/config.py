@@ -20,13 +20,18 @@ else:
     load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 
 # Server connection settings
-JARVIS_SERVER_URL = os.getenv("JARVIS_SERVER_URL", os.getenv("SERVER_URL", "http://localhost:3000")).rstrip("/")
-JARVIS_AUTH_TOKEN = os.getenv("JARVIS_AUTH_TOKEN", "")
-JARVIS_AGENT_ID = os.getenv("JARVIS_AGENT_ID", "LAPTOP-01")
+IGRIS_SERVER_URL = os.getenv("IGRIS_SERVER_URL", os.getenv("JARVIS_SERVER_URL", os.getenv("SERVER_URL", "http://localhost:3000"))).strip().rstrip("/")
+IGRIS_AUTH_TOKEN = os.getenv("IGRIS_AUTH_TOKEN", os.getenv("JARVIS_AUTH_TOKEN", "")).strip()
+IGRIS_AGENT_ID = os.getenv("IGRIS_AGENT_ID", os.getenv("JARVIS_AGENT_ID", "LAPTOP-01")).strip()
+
+# Backward-compatible aliases
+JARVIS_SERVER_URL = IGRIS_SERVER_URL
+JARVIS_AUTH_TOKEN = IGRIS_AUTH_TOKEN
+JARVIS_AGENT_ID = IGRIS_AGENT_ID
 
 # Predefined safe workspace directory (strict containment boundary)
 default_workspace = PROJECT_ROOT / "workspace"
-workspace_env = os.getenv("JARVIS_WORKSPACE_DIR", str(default_workspace))
+workspace_env = os.getenv("IGRIS_WORKSPACE_DIR", os.getenv("JARVIS_WORKSPACE_DIR", str(default_workspace)))
 WORKSPACE_DIR = Path(workspace_env).resolve()
 
 # Ensure the safe workspace directory exists

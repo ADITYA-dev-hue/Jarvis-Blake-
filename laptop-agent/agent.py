@@ -54,13 +54,15 @@ sio = socketio.Client(
 is_connected = False
 has_initially_connected = False
 running = True
+last_connect_error = None
 
 
 @sio.event
 def connect():
     """Triggered when connection and authentication succeed."""
-    global is_connected, has_initially_connected
+    global is_connected, has_initially_connected, last_connect_error
     is_connected = True
+    last_connect_error = None
 
     # Start live system metrics reporting
     metrics_reporter.start(sio)
@@ -68,7 +70,7 @@ def connect():
     if not has_initially_connected:
         has_initially_connected = True
         print("Authentication successful", flush=True)
-        print("Connected to JARVIS Server", flush=True)
+        print("Connected to IGRIS Server", flush=True)
         print("Status: ONLINE", flush=True)
         print("Waiting for commands...", flush=True)
     else:
@@ -90,8 +92,9 @@ def disconnect():
 @sio.event
 def connect_error(data):
     """Triggered on initial connection or reconnection failure."""
-    global is_connected
+    global is_connected, last_connect_error
     metrics_reporter.stop()
+    last_connect_error = data
     err_str = str(data)
 
     if "Authentication failed" in err_str:
@@ -231,14 +234,16 @@ def handle_shutdown(signum, frame):
 
 def main():
     """Main entrypoint for JARVIS laptop agent."""
+    global last_connect_error
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
     # Exact required terminal banner format
-    print("JARVIS Laptop Agent")
+    print("IGRIS Laptop Agent")
     print("------------------------------")
     print(f"Agent ID: {config.JARVIS_AGENT_ID}")
-    print("Connecting to JARVIS Server...")
+    print(f"Server URL: {config.JARVIS_SERVER_URL}")
+    print("Connecting to IGRIS Server...", flush=True)
 
     auth_payload = {
         "token": config.JARVIS_AUTH_TOKEN,
@@ -251,22 +256,31 @@ def main():
     while running:
         try:
             if not sio.connected:
+                last_connect_error = None
                 sio.connect(
                     server_url,
                     auth=auth_payload,
-                    transports=["websocket", "polling"],
+                    transports=["polling", "websocket"],
                     wait=True,
-                    wait_timeout=5
+                    wait_timeout=10
                 )
             sio.wait()
-        except socketio.exceptions.ConnectionError:
+        except socketio.exceptions.ConnectionError as exc:
             if not has_initially_connected:
-                print("Server unavailable")
-                print("Reconnecting...")
+                print("Server unavailable", flush=True)
+                # Diagnostic logging for local troubleshooting without exposing secrets
+                if last_connect_error:
+                    msg = last_connect_error.get("message") if isinstance(last_connect_error, dict) else str(last_connect_error)
+                    print(f"  [Detail] Handshake response: {msg}", flush=True)
+                elif exc.args:
+                    print(f"  [Detail] SocketIO error: {exc.args[0]}", flush=True)
+                print("Reconnecting...", flush=True)
             time.sleep(2)
         except KeyboardInterrupt:
             handle_shutdown(None, None)
         except Exception as e:
+            if not has_initially_connected:
+                print(f"  [Detail] Unexpected error: {type(e).__name__}: {e}", flush=True)
             time.sleep(2)
 
 

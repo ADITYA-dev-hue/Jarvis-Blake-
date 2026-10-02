@@ -28,7 +28,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ onExecuteCommand }) =>
     { name: 'Pictures', path: 'C:/Users/aditya/Pictures', icon: '🖼️', count: '89 items' },
     { name: 'Videos', path: 'C:/Users/aditya/Videos', icon: '🎬', count: '12 items' },
     { name: 'Projects', path: 'D:/Projects', icon: '⚡', count: '22 repos' },
-    { name: 'JARVIS Vault', path: 'd:/JARVIS/workspace', icon: '🛡️', count: 'Sandbox' }
+    { name: 'IGRIS Vault', path: 'd:/JARVIS/workspace', icon: '🛡️', count: 'Sandbox' }
   ]);
 
   const [files, setFiles] = useState<FileItem[]>([

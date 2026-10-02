@@ -178,7 +178,7 @@ export const AskBlakeScreen: React.FC<AskBlakeScreenProps> = ({
           >
             <Sparkles className="w-8 h-8 text-cyan-400 animate-pulse drop-shadow-[0_0_12px_rgba(6,182,212,0.9)]" />
             <span className="font-mono text-xs font-bold text-white mt-1 tracking-wider glow-text-red">
-              JARVIS
+              IGRIS
             </span>
             <span className="font-mono text-[8px] text-red-400 uppercase tracking-widest mt-0.5">
               BLAKE

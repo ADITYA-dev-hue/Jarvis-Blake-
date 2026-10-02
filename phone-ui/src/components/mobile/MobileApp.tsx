@@ -83,7 +83,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
 
   useEffect(() => {
     const tabName = activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
-    document.title = `JARVIS — BLAKE | ${tabName}`;
+    document.title = `IGRIS — BLAKE | ${tabName}`;
   }, [activeTab]);
 
   const handleTabSelect = (tab: MobileTab) => {
@@ -137,7 +137,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
         {/* Dynamic Island Pill */}
         <div className="w-24 h-5 rounded-full bg-black border border-slate-900 flex items-center justify-center gap-1.5 shadow-inner">
           <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-          <span className="text-[8px] tracking-widest text-red-400 font-bold uppercase">JARVIS</span>
+          <span className="text-[8px] tracking-widest text-red-400 font-bold uppercase">IGRIS</span>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -155,11 +155,11 @@ export const MobileApp: React.FC<MobileAppProps> = ({
         {/* Left Crest */}
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-black border border-red-500/80 flex items-center justify-center shadow-[0_0_12px_rgba(239,68,68,0.4)] overflow-hidden p-0.5">
-            <img src="/favicon-32x32.png" alt="JARVIS" className="w-full h-full object-contain rounded-md" />
+            <img src="/favicon-32x32.png" alt="IGRIS" className="w-full h-full object-contain rounded-md" />
           </div>
           <div className="flex flex-col">
             <span className="font-mono font-black tracking-widest text-sm text-white glow-text-red">
-              JARVIS
+              IGRIS
             </span>
             <span className="font-mono text-[10px] font-bold tracking-widest text-red-500 uppercase -mt-0.5">
               B L A K E
