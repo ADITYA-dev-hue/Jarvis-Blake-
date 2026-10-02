@@ -23,6 +23,15 @@ from command_registry import (
     handle_get_file_info,
     handle_create_text_file,
     handle_open_file,
+    handle_type_text,
+    handle_wait,
+    handle_search_web,
+    handle_task,
+    set_task_progress_callback,
+    MAX_TASK_STEPS,
+    MAX_TYPE_TEXT_LENGTH,
+    MAX_WAIT_MS,
+    MAX_SEARCH_QUERY_LENGTH,
     format_bytes,
     format_uptime
 )

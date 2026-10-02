@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { History as HistoryIcon } from 'lucide-react';
 import socketService from './services/socket';
 import {
   ConnectionState,
@@ -6,7 +7,11 @@ import {
   AiStatusState,
   SystemStatusData,
   HistoryItem,
-  ToastMessage
+  ToastMessage,
+  AiCommandResponse,
+  LanguagePreference,
+  TaskConfirmationRequiredEvent,
+  TaskProgressEvent
 } from './types/command';
 import Toast from './components/Toast';
 import DesktopDashboard from './components/desktop/DesktopDashboard';
@@ -17,21 +22,26 @@ import conversationManager from './services/conversationManager';
 import { VoiceSettings } from './types/voice';
 import MultiViewSwitcher, { ViewMode } from './components/MultiViewSwitcher';
 import SplashScreen from './components/SplashScreen';
+import LanguageSelector from './components/LanguageSelector';
+import TaskConfirmationModal from './components/TaskConfirmationModal';
+import TaskProgressBanner from './components/TaskProgressBanner';
+import TaskHistoryModal from './components/TaskHistoryModal';
 
 const STORAGE_KEY_HISTORY = 'jarvis_phone_history_v1';
 const STORAGE_KEY_VOICE = 'jarvis_voice_settings_v1';
+const STORAGE_KEY_LANG = 'jarvis_language_pref_v1';
+const STORAGE_KEY_VIEW_MODE = 'jarvis_view_mode_v1';
 
 export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
-      if (typeof window !== 'undefined' && window.innerWidth >= 1280) {
-        return 'dual';
-      }
-      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-        return 'desktop';
+      const saved = localStorage.getItem(STORAGE_KEY_VIEW_MODE) as ViewMode;
+      if (saved && ['mobile', 'desktop', 'dual'].includes(saved)) {
+        return saved;
       }
     } catch {}
-    return 'desktop';
+    // Phone mode by-default so user can easily open it on phone
+    return 'mobile';
   });
   const [connectionState, setConnectionState] = useState<ConnectionState>('DISCONNECTED');
   const [agentStatus, setAgentStatus] = useState<AgentStatusState>('offline');
@@ -74,6 +84,36 @@ export function App() {
       };
     }
   });
+
+  // Phase 9 Multilingual & Workflow states
+  const [languagePref, setLanguagePref] = useState<LanguagePreference>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_LANG) as LanguagePreference;
+      if (saved && ['auto', 'en', 'hinglish', 'hi'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'auto';
+  });
+  const [activeLanguage, setActiveLanguage] = useState<string>('auto');
+  const [taskProgress, setTaskProgress] = useState<TaskProgressEvent | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<TaskConfirmationRequiredEvent | null>(null);
+  const [isConfirming, setIsConfirming] = useState<boolean>(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
+
+  // Save language preference to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_LANG, languagePref);
+    } catch {}
+  }, [languagePref]);
+
+  // Save view mode to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_VIEW_MODE, viewMode);
+    } catch {}
+  }, [viewMode]);
 
   // Toast helper
   const addToast = useCallback((type: 'success' | 'error' | 'info', message: string) => {
@@ -120,9 +160,32 @@ export function App() {
       }
     });
 
+    const unsubProgress = socketService.onTaskProgress((data) => {
+      setTaskProgress(data);
+      setStepMessage(`Executing step ${data.step} of ${data.total}: ${data.action}...`);
+    });
+
+    const unsubConfirm = socketService.onTaskConfirmationRequired((data) => {
+      setPendingConfirmation(data);
+      addToast('info', 'Task approval required for multi-step workflow.');
+    });
+
+    const unsubLanguage = socketService.onLanguageChanged((data) => {
+      if (data?.language) {
+        setActiveLanguage(data.language);
+        if (['en', 'hinglish', 'hi'].includes(data.language)) {
+          setLanguagePref(data.language as LanguagePreference);
+        }
+        addToast('info', data.message || `Language updated to ${data.language}`);
+      }
+    });
+
     return () => {
       unsubConn();
       unsubAgent();
+      unsubProgress();
+      unsubConfirm();
+      unsubLanguage();
     };
   }, [addToast]);
 
@@ -158,8 +221,14 @@ export function App() {
 
 
   // Phase 3, 4 & 5 Natural-Language AI Command Handler (Supports Text & Voice input with Context)
-  const handleSendAiCommand = async (userText: string, source: 'text' | 'voice' = 'text') => {
-    if (isExecuting) return;
+  const handleSendAiCommand = async (userText: string, source: 'text' | 'voice' = 'text'): Promise<AiCommandResponse> => {
+    if (isExecuting) {
+      return {
+        success: false,
+        userText,
+        message: 'A directive is already executing.'
+      };
+    }
 
     if (connectionState !== 'CONNECTED') {
       const offlineMsg = 'IGRIS server is unavailable.';
@@ -167,7 +236,11 @@ export function App() {
       if (source === 'voice' && voiceSettings.autoSpeakResponses) {
         ttsService.speak(offlineMsg, voiceSettings.language);
       }
-      return;
+      return {
+        success: false,
+        userText,
+        message: offlineMsg
+      };
     }
 
     // 1. Record user message in ConversationManager
@@ -182,20 +255,69 @@ export function App() {
       const response = await socketService.sendAiCommand(
         userText,
         conversationManager.getSessionId(),
-        source
+        source,
+        languagePref
       );
+
+      // Phase 9 Language Switch handling
+      if (response.language) {
+        setActiveLanguage(response.language);
+      }
+      if (response.isLanguageSwitch && response.targetLanguage) {
+        setLanguagePref(response.targetLanguage as LanguagePreference);
+        setActiveLanguage(response.targetLanguage);
+      }
+
+      // Phase 9 Workflow Approval Gate
+      if (response.requiresConfirmation && response.confirmationId) {
+        setPendingConfirmation({
+          success: true,
+          requiresConfirmation: true,
+          confirmationId: response.confirmationId,
+          userText,
+          sessionId: conversationManager.getSessionId(),
+          language: response.language || 'en',
+          taskSummary: response.taskSummary || { steps: 0, stepActions: [] },
+          message: response.message || 'Task requires confirmation before execution.'
+        });
+        setStepMessage('Awaiting user approval...');
+        addToast('info', 'Task approval required for multi-step workflow.');
+        conversationManager.addAssistantMessage(response.message || 'Workflow requires confirmation.', 'task', false);
+        return response;
+      }
 
       if (response.success) {
         const actionName = response.interpretedCommand?.action || 'command';
-        setStepMessage(`Executing ${actionName}...`);
+        if (actionName === 'task') {
+          setStepMessage('Task completed ✓');
+        } else {
+          setStepMessage(`Executing ${actionName}...`);
+          setTimeout(() => setStepMessage('Completed ✓'), 400);
+        }
 
-        setTimeout(() => setStepMessage('Completed ✓'), 400);
-
-        addToast('success', `Completed: ${actionName}`);
+        addToast('success', actionName === 'task' ? 'Task completed successfully' : `Completed: ${actionName}`);
 
         // Update live telemetry if action is system_status
         if (actionName === 'system_status' && response.result?.data) {
-          setSystemData(response.result.data);
+          const raw = response.result.data;
+          const cpuVal = typeof raw.cpu === 'number'
+            ? raw.cpu
+            : (typeof raw.cpu?.usagePercent === 'number'
+              ? raw.cpu.usagePercent
+              : (typeof raw.cpu_percent === 'number'
+                ? raw.cpu_percent
+                : 0));
+          const ramVal = typeof raw.ram === 'number'
+            ? raw.ram
+            : (typeof raw.memory?.usagePercent === 'number'
+              ? raw.memory.usagePercent
+              : 0);
+
+          setSystemData({
+            ...raw,
+            cpu: cpuVal,
+            ram: ramVal
+          });
         }
 
         const friendlyMsg = response.message || 'Command executed successfully.';
@@ -223,8 +345,11 @@ export function App() {
           },
           ...prev
         ]);
+
+        return response;
       } else {
         const msg = response.message || "I can't perform that action yet.";
+        setStepMessage('Task failed');
         addToast('error', msg);
 
         // Record assistant response in ConversationManager
@@ -254,9 +379,12 @@ export function App() {
           },
           ...prev
         ]);
+
+        return response;
       }
     } catch (err: any) {
       const msg = formatFriendlyError(err);
+      setStepMessage('Task failed');
       addToast('error', msg);
 
       // Record error in ConversationManager
@@ -281,6 +409,12 @@ export function App() {
         },
         ...prev
       ]);
+
+      return {
+        success: false,
+        userText,
+        message: msg
+      };
     } finally {
       setTimeout(() => {
         setIsExecuting(false);
@@ -299,6 +433,85 @@ export function App() {
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to clear session.');
     }
+  };
+
+  // Phase 9 Safe Confirmation Action Handlers
+  const handleConfirmTask = async () => {
+    if (!pendingConfirmation) return;
+    setIsConfirming(true);
+    setIsExecuting(true);
+    setStepMessage('Executing approved workflow...');
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      const res = await socketService.confirmTask(pendingConfirmation.confirmationId);
+      if (res && res.success) {
+        const msg = res.message || 'Workflow executed successfully.';
+        setStepMessage('Workflow completed ✓');
+        addToast('success', msg);
+        conversationManager.addAssistantMessage(msg, 'task', true);
+        if (voiceSettings.autoSpeakResponses) {
+          ttsService.speak(msg, voiceSettings.language);
+        }
+        setHistory((prev) => [
+          {
+            id: `hist-${Date.now()}`,
+            commandId: res.result?.commandId || `task-${Date.now()}`,
+            action: 'task',
+            label: pendingConfirmation.userText,
+            userText: pendingConfirmation.userText,
+            interpretedAction: 'task',
+            source: 'text',
+            timestamp: timeStr,
+            success: true,
+            data: res.result?.data
+          },
+          ...prev
+        ]);
+      } else {
+        const errMsg = res?.error || res?.message || 'Workflow execution failed.';
+        setStepMessage('Workflow failed');
+        addToast('error', errMsg);
+        conversationManager.addAssistantMessage(errMsg, 'task', false);
+        setHistory((prev) => [
+          {
+            id: `hist-${Date.now()}`,
+            commandId: `err-${Date.now()}`,
+            action: 'task',
+            label: pendingConfirmation.userText,
+            userText: pendingConfirmation.userText,
+            interpretedAction: 'task',
+            source: 'text',
+            timestamp: timeStr,
+            success: false,
+            error: errMsg
+          },
+          ...prev
+        ]);
+      }
+    } catch (err: any) {
+      const errMsg = formatFriendlyError(err);
+      addToast('error', errMsg);
+      conversationManager.addAssistantMessage(errMsg, 'task', false);
+    } finally {
+      setIsConfirming(false);
+      setIsExecuting(false);
+      setPendingConfirmation(null);
+      setTimeout(() => {
+        setStepMessage(null);
+        setTaskProgress(null);
+      }, 1500);
+    }
+  };
+
+  const handleCancelTask = async () => {
+    if (!pendingConfirmation) return;
+    try {
+      await socketService.cancelTask(pendingConfirmation.confirmationId);
+      addToast('info', 'Workflow cancelled.');
+      conversationManager.addAssistantMessage('Workflow was cancelled by user.', 'task', false);
+    } catch (err) {}
+    setPendingConfirmation(null);
+    setStepMessage(null);
   };
 
   // Direct Quick Action Preset Handler
@@ -398,6 +611,56 @@ export function App() {
       <div className="min-h-screen w-full bg-[#03060c] text-slate-100 flex flex-col font-sans relative overflow-x-hidden">
         {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
         <Toast toasts={toasts} onDismiss={dismissToast} />
+        
+        {/* Phase 9 Modals */}
+        <TaskConfirmationModal
+          isOpen={Boolean(pendingConfirmation)}
+          data={pendingConfirmation}
+          onConfirm={handleConfirmTask}
+          onCancel={handleCancelTask}
+          isProcessing={isConfirming}
+        />
+        <TaskHistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          serverUrl={socketService.getServerUrl()}
+        />
+
+        {/* Global Control Bar for Desktop */}
+        <div className="w-full bg-[#050913]/90 backdrop-blur-md border-b border-red-950/70 px-4 py-2 flex items-center justify-between text-xs z-40 sticky top-0 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="font-mono font-bold tracking-widest text-slate-100 uppercase text-sm glow-text-red">
+              IGRIS // BLAKE
+            </span>
+            <span className="hidden sm:inline text-[10px] bg-red-950/80 text-red-400 border border-red-800/50 px-2 py-0.5 rounded font-mono font-bold">
+              WORKFLOW STATION
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <LanguageSelector
+              currentPref={languagePref}
+              activeLanguage={activeLanguage}
+              onPrefChange={setLanguagePref}
+            />
+            <button
+              onClick={() => setIsHistoryModalOpen(true)}
+              title="View Workflow Task History"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-mono text-xs font-semibold transition-all shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+            >
+              <HistoryIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">WORKFLOWS</span>
+            </button>
+            <MultiViewSwitcher currentMode={viewMode} onModeChange={setViewMode} />
+          </div>
+        </div>
+
+        {taskProgress && (
+          <div className="px-4 pt-2">
+            <TaskProgressBanner progress={taskProgress} activeAction={stepMessage} />
+          </div>
+        )}
+
         <DesktopDashboard
           connectionState={connectionState}
           agentStatus={agentStatus}
@@ -424,6 +687,20 @@ export function App() {
         {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
         <Toast toasts={toasts} onDismiss={dismissToast} />
 
+        {/* Phase 9 Modals */}
+        <TaskConfirmationModal
+          isOpen={Boolean(pendingConfirmation)}
+          data={pendingConfirmation}
+          onConfirm={handleConfirmTask}
+          onCancel={handleCancelTask}
+          isProcessing={isConfirming}
+        />
+        <TaskHistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          serverUrl={socketService.getServerUrl()}
+        />
+
         {/* Persistent Floating Multi-View Controller Header */}
         <div className="w-full h-12 bg-[#050913]/95 backdrop-blur-md border-b border-red-950/80 px-4 flex items-center justify-between text-xs z-50 sticky top-0 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -435,8 +712,29 @@ export function App() {
             </span>
           </div>
 
-          <MultiViewSwitcher currentMode={viewMode} onModeChange={setViewMode} />
+          <div className="flex items-center gap-2">
+            <LanguageSelector
+              currentPref={languagePref}
+              activeLanguage={activeLanguage}
+              onPrefChange={setLanguagePref}
+            />
+            <button
+              onClick={() => setIsHistoryModalOpen(true)}
+              title="View Workflow Task History"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-mono text-xs font-semibold transition-all"
+            >
+              <HistoryIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">WORKFLOWS</span>
+            </button>
+            <MultiViewSwitcher currentMode={viewMode} onModeChange={setViewMode} />
+          </div>
         </div>
+
+        {taskProgress && (
+          <div className="px-4 pt-2">
+            <TaskProgressBanner progress={taskProgress} activeAction={stepMessage} />
+          </div>
+        )}
 
         {/* Side-by-Side Dual Viewport */}
         <div className="flex-1 flex flex-col xl:flex-row w-full overflow-hidden">
@@ -496,21 +794,55 @@ export function App() {
     );
   }
 
-  // Mobile Phone View
+  // Mobile Phone View (Native Edge-to-Edge on phones, framed mockup on tablets/desktops)
   return (
-    <div className="min-h-screen bg-[#020409] text-slate-100 flex flex-col items-center justify-start relative overflow-x-hidden font-sans py-2 sm:py-6">
+    <div className="min-h-screen bg-[#020409] text-slate-100 flex flex-col items-center justify-start relative overflow-x-hidden font-sans py-0 sm:py-6 px-0 sm:px-2">
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       {/* Floating Toast Notification Stack */}
       <Toast toasts={toasts} onDismiss={dismissToast} />
       {false && <ConversationHistory messages={[]} onClear={handleClearConversation} />}
 
-      {/* Top Multi-View Switcher Bar */}
-      <div className="mb-4 z-50">
+      {/* Phase 9 Modals */}
+      <TaskConfirmationModal
+        isOpen={Boolean(pendingConfirmation)}
+        data={pendingConfirmation}
+        onConfirm={handleConfirmTask}
+        onCancel={handleCancelTask}
+        isProcessing={isConfirming}
+      />
+      <TaskHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        serverUrl={socketService.getServerUrl()}
+      />
+
+      {/* Top Multi-View Switcher & Language Bar */}
+      <div className="my-2 z-50 flex flex-wrap items-center justify-center gap-2 px-2 max-w-full">
         <MultiViewSwitcher currentMode={viewMode} onModeChange={setViewMode} />
+        <LanguageSelector
+          currentPref={languagePref}
+          activeLanguage={activeLanguage}
+          onPrefChange={setLanguagePref}
+          compact
+        />
+        <button
+          onClick={() => setIsHistoryModalOpen(true)}
+          title="View Workflow Task History"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white font-mono text-xs font-semibold shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+        >
+          <HistoryIcon className="w-3.5 h-3.5 text-cyan-400" />
+          <span>TASKS</span>
+        </button>
       </div>
 
+      {taskProgress && (
+        <div className="w-full max-w-[440px] px-2 mb-2">
+          <TaskProgressBanner progress={taskProgress} activeAction={stepMessage} />
+        </div>
+      )}
+
       {/* iPhone 16 Pro Frame Wrapper on screens >= 640px */}
-      <div className="w-full max-w-[420px] sm:rounded-[44px] sm:p-2 sm:bg-gradient-to-b sm:from-slate-700 sm:via-slate-900 sm:to-black sm:shadow-[0_0_50px_rgba(255,30,68,0.25),0_20px_50px_rgba(0,0,0,0.9)] sm:border sm:border-red-900/40 relative">
+      <div className="w-full sm:max-w-[430px] sm:rounded-[44px] sm:p-2 sm:bg-gradient-to-b sm:from-slate-700 sm:via-slate-900 sm:to-black sm:shadow-[0_0_50px_rgba(255,30,68,0.25),0_20px_50px_rgba(0,0,0,0.9)] sm:border sm:border-red-900/40 relative">
         <div className="w-full sm:rounded-[38px] overflow-hidden">
           <MobileApp
             connectionState={connectionState}

@@ -43,6 +43,7 @@ import {
 import { ConnectionState, AgentStatusState, AiStatusState, SystemStatusData, HistoryItem } from '../../types/command';
 import audioFx from '../../services/audioFx';
 import speechRecognition from '../../services/speechRecognition';
+import useDeviceStatus from '../../services/useDeviceStatus';
 import MultiViewSwitcher, { ViewMode } from '../MultiViewSwitcher';
 import SystemDashboard from '../dashboard/SystemDashboard';
 
@@ -54,7 +55,7 @@ interface DesktopDashboardProps {
   systemData: SystemStatusData | null;
   history: HistoryItem[];
   onExecuteCommand: (action: string, parameters: Record<string, any>, label: string) => Promise<void>;
-  onSendAiCommand: (text: string, source: 'text' | 'voice') => Promise<void>;
+  onSendAiCommand: (text: string, source: 'text' | 'voice') => Promise<any>;
   onSwitchToMobile?: () => void;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
@@ -79,6 +80,7 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
   isExecuting,
   stepMessage
 }) => {
+  const deviceStatus = useDeviceStatus(systemData);
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [inputCommand, setInputCommand] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -148,7 +150,10 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
     setInputCommand('');
     if (soundEnabled) audioFx.playClick();
     setAiMessage(`Analyzing: "${prompt}"... Executing protocols.`);
-    await onSendAiCommand(prompt, 'text');
+    const res = await onSendAiCommand(prompt, 'text');
+    if (res?.message) {
+      setAiMessage(res.message);
+    }
     if (soundEnabled) audioFx.playSuccess();
   };
 
@@ -199,14 +204,14 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Safe hardware values
-  const cpuVal = Math.round(systemData?.cpu ?? 18);
-  const ramVal = Math.round(systemData?.ram ?? 39);
-  const diskVal = Math.round(systemData?.disk?.percent ?? 78);
-  const ramTotal = systemData?.memory?.total ?? '16 GB';
-  const ramUsed = systemData?.memory?.used ?? '6.2 GB';
-  const diskTotal = systemData?.disk?.total ?? '800 GB';
-  const diskUsed = systemData?.disk?.used ?? '624 GB';
+  // Safe hardware values derived from live device & system telemetry
+  const cpuVal = deviceStatus.cpuPercent;
+  const ramVal = deviceStatus.ramPercent;
+  const diskVal = deviceStatus.diskPercent;
+  const ramTotal = deviceStatus.ramTotal;
+  const ramUsed = deviceStatus.ramUsed;
+  const diskTotal = deviceStatus.diskTotal;
+  const diskUsed = deviceStatus.diskUsed;
 
   return (
     <div className="min-h-screen w-full bg-[#03060c] text-slate-100 flex flex-col font-sans select-none overflow-x-hidden relative cyber-grid-bg">
@@ -530,15 +535,19 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2 font-mono text-[11px]">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 flex items-center gap-1.5">
-                          <Wifi className="w-3 h-3 text-cyan-400" /> NETWORK
+                          <Wifi className={`w-3 h-3 ${deviceStatus.isOnline ? 'text-cyan-400' : 'text-slate-500'}`} /> NETWORK
                         </span>
-                        <span className="text-slate-200">↑ 58 Mbps / ↓ 9 Mbps</span>
+                        <span className="text-slate-200">
+                          {deviceStatus.isOnline ? 'Connected • Live' : 'Offline'}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400 flex items-center gap-1.5">
-                          <Battery className="w-3.5 h-3.5 text-emerald-400" /> BATTERY
+                          <Battery className={`w-3.5 h-3.5 ${deviceStatus.battery.percent > 20 ? 'text-emerald-400' : 'text-rose-400'}`} /> BATTERY
                         </span>
-                        <span className="text-emerald-400 font-semibold">84% (2h 36m)</span>
+                        <span className={`font-semibold ${deviceStatus.battery.percent > 20 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {deviceStatus.battery.levelText}
+                        </span>
                       </div>
                     </div>
                   </div>

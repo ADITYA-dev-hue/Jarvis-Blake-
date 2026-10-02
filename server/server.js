@@ -22,7 +22,42 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 
 const { interpretCommand, GEMINI_MODEL } = require('./ai/gemini');
+const { validateCommand } = require('./ai/command-validator');
+const {
+  formatMultilingualResponse,
+  formatMultilingualError,
+  formatConfirmationPrompt,
+  detectLanguage
+} = require('./ai/language-engine');
 const { sessionStore, DEFAULT_CONTEXT_LIMIT } = require('./memory/session-store');
+
+// Phase 9: Safe Task Confirmation Management
+// confirmationId -> { confirmationId, validatedCommand, userText, language, sessionId, createdAt, expiresAt }
+const pendingConfirmations = new Map();
+
+// Phase 9: Bounded Task Execution History (Zero credentials, bounded to 50 items)
+const MAX_TASK_HISTORY = 50;
+const taskExecutionHistory = [];
+
+function addTaskHistory(entry) {
+  const sanitized = {
+    taskId: String(entry.taskId || `task-${Date.now()}`),
+    timestamp: entry.timestamp || new Date().toISOString(),
+    originalUserRequest: String(entry.originalUserRequest || ''),
+    detectedLanguage: String(entry.detectedLanguage || 'en'),
+    status: ['completed', 'failed', 'cancelled'].includes(entry.status) ? entry.status : 'completed',
+    steps: typeof entry.steps === 'number' ? entry.steps : 0,
+    completedSteps: typeof entry.completedSteps === 'number' ? entry.completedSteps : 0,
+    failedStep: entry.failedStep !== undefined ? entry.failedStep : null,
+    resultSummary: String(entry.resultSummary || '')
+  };
+
+  taskExecutionHistory.unshift(sanitized);
+  if (taskExecutionHistory.length > MAX_TASK_HISTORY) {
+    taskExecutionHistory.pop();
+  }
+  return sanitized;
+}
 
 // Security Audit Log setup (Phase 6)
 const LOGS_DIR = path.join(__dirname, 'logs');
@@ -271,114 +306,11 @@ function dispatchCommand(agentEntry, commandId, action, parameters = {}, timeout
 /**
  * Format natural human-readable messages for Voice / Text-to-Speech responses
  */
-function formatFriendlyResponseMessage(action, parameters, result, userText = '') {
+function formatFriendlyResponseMessage(action, parameters = {}, result = {}, userText = '', language = 'en') {
   if (!result || !result.success) {
-    return result?.error || "I couldn't complete that command.";
+    return result?.error || formatMultilingualError(result?.error, language);
   }
-
-  if (action === 'open_url') {
-    const url = parameters?.url || '';
-    if (url.toLowerCase().includes('github.com')) return 'GitHub opened successfully.';
-    if (url.toLowerCase().includes('google.com')) return 'Google opened successfully.';
-    try {
-      const parsed = new URL(url);
-      const host = parsed.hostname.replace(/^www\./, '');
-      return `${host} opened successfully.`;
-    } catch (_) {
-      return 'Website opened successfully.';
-    }
-  }
-
-  if (action === 'open_app') {
-    const app = (parameters?.app || '').toLowerCase();
-    if (app === 'notepad') return 'Notepad launched successfully.';
-    if (app === 'calculator') return 'Calculator launched successfully.';
-    if (app === 'paint') return 'Paint launched successfully.';
-    if (app === 'explorer') return 'File Explorer opened successfully.';
-    if (app === 'code') return 'Visual Studio Code launched successfully.';
-    return `${parameters?.app || 'Application'} launched successfully.`;
-  }
-
-  if (action === 'system_status') {
-    const data = result?.data || latestSystemMetrics;
-    const cpuVal = typeof data?.cpu === 'number' ? data.cpu : (typeof data?.cpu?.usagePercent === 'number' ? data.cpu.usagePercent : null);
-    const ramVal = typeof data?.ram === 'number' ? data.ram : (typeof data?.memory?.usagePercent === 'number' ? data.memory.usagePercent : null);
-    const diskVal = typeof data?.disk === 'number' ? data.disk : (typeof data?.disk?.usagePercent === 'number' ? data.disk.usagePercent : null);
-    const batt = data?.battery;
-
-    const lowerQuery = (userText || '').toLowerCase();
-    if (lowerQuery.includes('ram') || lowerQuery.includes('memory')) {
-      if (typeof ramVal === 'number') {
-        return `Your RAM usage is currently ${ramVal} percent.`;
-      }
-      return 'Your RAM usage telemetry is ready.';
-    }
-    if (lowerQuery.includes('cpu')) {
-      if (typeof cpuVal === 'number') {
-        return `Your CPU is currently at ${cpuVal} percent.`;
-      }
-      return 'Your CPU activity telemetry is ready.';
-    }
-    if (lowerQuery.includes('battery')) {
-      if (batt && batt.available && typeof batt.percent === 'number') {
-        const chargingText = batt.charging ? ' and currently charging' : '';
-        return `Your battery level is currently ${batt.percent} percent${chargingText}.`;
-      } else if (batt && batt.available === false) {
-        return 'Battery information is not available on this system.';
-      }
-      return 'Battery status retrieved.';
-    }
-    if (lowerQuery.includes('storage') || lowerQuery.includes('disk')) {
-      if (typeof diskVal === 'number') {
-        return `Your storage usage is currently ${diskVal} percent.`;
-      }
-      return 'Storage status retrieved.';
-    }
-
-    if (typeof cpuVal === 'number' && typeof ramVal === 'number') {
-      return `Laptop status: CPU is at ${cpuVal} percent, memory is at ${ramVal} percent.`;
-    }
-    return 'Laptop status retrieved successfully.';
-  }
-
-  if (action === 'create_folder') {
-    const folder = parameters?.name || 'folder';
-    return `Folder ${folder} created successfully.`;
-  }
-
-  if (action === 'open_folder') {
-    const target = parameters?.path ? `Folder "${parameters.path}"` : 'Workspace';
-    return `${target} opened in File Explorer.`;
-  }
-
-  if (action === 'list_folder') {
-    const items = result?.data?.items || [];
-    const count = items.length;
-    const target = parameters?.path ? `folder "${parameters.path}"` : 'workspace';
-    if (count === 0) return `The ${target} is currently empty.`;
-    const names = items.slice(0, 5).map(i => i.name).join(', ');
-    const more = count > 5 ? ` and ${count - 5} more` : '';
-    return `Found ${count} item${count === 1 ? '' : 's'} in ${target}: ${names}${more}.`;
-  }
-
-  if (action === 'get_file_info') {
-    const file = parameters?.path || result?.data?.filename || 'File';
-    const size = result?.data?.size !== undefined ? result.data.size : (result?.data?.size_bytes ? `${result.data.size_bytes} bytes` : '');
-    const sizeText = size ? `, size is ${size}` : '';
-    return `File info for ${file}: found${sizeText}.`;
-  }
-
-  if (action === 'create_text_file') {
-    const file = parameters?.path || 'File';
-    return `File ${file} created successfully.`;
-  }
-
-  if (action === 'open_file') {
-    const file = parameters?.path || 'File';
-    return `File ${file} opened successfully.`;
-  }
-
-  return 'Command executed successfully.';
+  return formatMultilingualResponse(action, parameters, result, userText, language);
 }
 
 // Socket.IO Connection Handler
@@ -414,6 +346,13 @@ io.on('connection', (socket) => {
       };
       // Forward telemetry strictly to authenticated phone clients
       io.to('phones').emit('system_metrics', latestSystemMetrics);
+    });
+
+    // Phase 8: Live task progress forwarding to phone clients
+    socket.on('task_progress', (progress) => {
+      if (progress && typeof progress === 'object') {
+        io.to('phones').emit('task_progress', progress);
+      }
     });
 
     // Laptop -> Server result event
@@ -515,9 +454,15 @@ io.on('connection', (socket) => {
       if (typeof callback === 'function') callback(result);
     });
 
-    // Phase 3, 4 & 5 Natural Language AI Command Event with Session Context
+    // Phase 3, 4, 5, 8 & 9 Natural Language AI Command Event with Multilingual & Workflow Planning
     socket.on('ai_command', async (payload, callback) => {
-      const { text = '', agentId = 'LAPTOP-01', sessionId = 'default-session', source = 'text' } = payload || {};
+      const {
+        text = '',
+        agentId = 'LAPTOP-01',
+        sessionId = 'default-session',
+        source = 'text',
+        languagePreference = 'auto'
+      } = payload || {};
 
       // 1. Retrieve recent conversation context for this session
       const recentContext = sessionStore.getRecentMessages(sessionId, MAX_CONTEXT_MESSAGES);
@@ -529,8 +474,35 @@ io.on('connection', (socket) => {
         source: source === 'voice' ? 'voice' : 'text'
       });
 
-      // 3. Interpret command with conversation context
-      const interpretation = await interpretCommand(text, recentContext);
+      // 3. Interpret command with conversation context & multilingual language engine
+      const interpretation = await interpretCommand(text, recentContext, languagePreference);
+
+      // Phase 9 Language Switch Directives
+      if (interpretation.isLanguageSwitch) {
+        socket.emit('language_changed', {
+          language: interpretation.targetLanguage,
+          message: interpretation.message
+        });
+
+        sessionStore.addMessage(sessionId, {
+          role: 'assistant',
+          content: interpretation.message,
+          action: 'set_language',
+          success: true
+        });
+
+        const switchResponse = {
+          success: true,
+          isLanguageSwitch: true,
+          userText: text,
+          sessionId,
+          language: interpretation.targetLanguage,
+          message: interpretation.message
+        };
+        socket.emit('ai_command_result', switchResponse);
+        if (typeof callback === 'function') callback(switchResponse);
+        return;
+      }
 
       if (!interpretation.success) {
         const failMsg = interpretation.message || "I can't perform that action yet.";
@@ -548,6 +520,7 @@ io.on('connection', (socket) => {
           success: false,
           userText: text,
           sessionId,
+          language: interpretation.language,
           interpretedCommand: interpretation.interpretedCommand,
           message: failMsg
         };
@@ -557,10 +530,46 @@ io.on('connection', (socket) => {
       }
 
       const validatedCmd = interpretation.validatedCommand;
+
+      // Phase 9 Safe Task Confirmation Check
+      if (interpretation.requiresConfirmation) {
+        const confirmationId = `conf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        pendingConfirmations.set(confirmationId, {
+          confirmationId,
+          validatedCommand: validatedCmd,
+          userText: text,
+          language: interpretation.language,
+          sessionId,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 120000 // 2 minutes
+        });
+
+        const confResponse = {
+          success: true,
+          requiresConfirmation: true,
+          confirmationId,
+          userText: text,
+          sessionId,
+          language: interpretation.language,
+          interpretedCommand: interpretation.interpretedCommand,
+          validatedCommand: validatedCmd,
+          taskSummary: {
+            steps: validatedCmd.parameters?.steps?.length || 0,
+            stepActions: (validatedCmd.parameters?.steps || []).map((s) => s.action)
+          },
+          message: interpretation.confirmationPrompt || formatConfirmationPrompt(validatedCmd.parameters?.steps?.length || 0, interpretation.language)
+        };
+
+        socket.emit('task_confirmation_required', confResponse);
+        socket.emit('ai_command_result', confResponse);
+        if (typeof callback === 'function') callback(confResponse);
+        return;
+      }
+
       const agentEntry = connectedAgentsById.get(agentId);
 
       if (!agentEntry || !agentEntry.socket || !agentEntry.socket.connected) {
-        const offlineMsg = "Your laptop is currently offline.";
+        const offlineMsg = formatMultilingualError('laptop offline', interpretation.language);
         appendAuditLog(sessionId, validatedCmd.action, false);
 
         // Record offline response in session memory
@@ -575,6 +584,7 @@ io.on('connection', (socket) => {
           success: false,
           userText: text,
           sessionId,
+          language: interpretation.language,
           interpretedCommand: validatedCmd,
           message: offlineMsg
         };
@@ -589,8 +599,30 @@ io.on('connection', (socket) => {
       appendAuditLog(sessionId, validatedCmd.action, execResult.success);
 
       const friendlyMsg = execResult.success
-        ? formatFriendlyResponseMessage(validatedCmd.action, validatedCmd.parameters, execResult, text)
-        : (execResult.error || "I couldn't complete that command.");
+        ? formatFriendlyResponseMessage(validatedCmd.action, validatedCmd.parameters, execResult, text, interpretation.language)
+        : (execResult.error || formatMultilingualError(execResult.error, interpretation.language));
+
+      // Record in task history if action was task
+      if (validatedCmd.action === 'task') {
+        addTaskHistory({
+          taskId: commandId,
+          timestamp: new Date().toISOString(),
+          originalUserRequest: text,
+          detectedLanguage: interpretation.language,
+          status: execResult.success ? 'completed' : 'failed',
+          steps: validatedCmd.parameters?.steps?.length || 0,
+          completedSteps: execResult.data?.completed_steps || (execResult.success ? validatedCmd.parameters?.steps?.length : 0),
+          failedStep: execResult.success ? null : (execResult.data?.completed_steps !== undefined ? execResult.data.completed_steps + 1 : 1),
+          resultSummary: friendlyMsg
+        });
+
+        socket.emit(execResult.success ? 'task_completed' : 'task_failed', {
+          commandId,
+          success: execResult.success,
+          result: execResult,
+          message: friendlyMsg
+        });
+      }
 
       // Record assistant execution response in session memory
       sessionStore.addMessage(sessionId, {
@@ -604,6 +636,7 @@ io.on('connection', (socket) => {
         success: execResult.success,
         userText: text,
         sessionId,
+        language: interpretation.language,
         interpretedCommand: validatedCmd,
         result: execResult,
         message: friendlyMsg
@@ -611,6 +644,93 @@ io.on('connection', (socket) => {
 
       socket.emit('ai_command_result', fullResponse);
       if (typeof callback === 'function') callback(fullResponse);
+    });
+
+    // Phase 9 Task Confirm Event
+    socket.on('task_confirm', async (payload, callback) => {
+      const { confirmationId } = payload || {};
+      if (!confirmationId || !pendingConfirmations.has(confirmationId)) {
+        const fail = { success: false, error: "Invalid or expired confirmation ID." };
+        if (typeof callback === 'function') callback(fail);
+        return;
+      }
+      const pending = pendingConfirmations.get(confirmationId);
+      pendingConfirmations.delete(confirmationId);
+
+      if (Date.now() > pending.expiresAt) {
+        const exp = { success: false, error: "Confirmation expired." };
+        if (typeof callback === 'function') callback(exp);
+        return;
+      }
+
+      // CRITICAL SECURITY: SERVER RE-VALIDATES BEFORE EXECUTION
+      const revalidation = validateCommand(pending.validatedCommand);
+      if (!revalidation.valid) {
+        const fail = { success: false, error: `Security re-validation failed: ${revalidation.error}` };
+        if (typeof callback === 'function') callback(fail);
+        return;
+      }
+
+      const agentEntry = connectedAgentsById.get('LAPTOP-01');
+      if (!agentEntry || !agentEntry.socket || !agentEntry.socket.connected) {
+        const offlineMsg = formatMultilingualError('laptop offline', pending.language);
+        const fail = { success: false, error: offlineMsg, message: offlineMsg };
+        if (typeof callback === 'function') callback(fail);
+        return;
+      }
+
+      const commandId = `cmd-task-conf-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const execResult = await dispatchCommand(agentEntry, commandId, revalidation.command.action, revalidation.command.parameters);
+
+      const friendlyMsg = execResult.success
+        ? formatFriendlyResponseMessage(revalidation.command.action, revalidation.command.parameters, execResult, pending.userText, pending.language)
+        : (execResult.error || formatMultilingualError(execResult.error, pending.language));
+
+      // Record in task history
+      addTaskHistory({
+        taskId: commandId,
+        timestamp: new Date().toISOString(),
+        originalUserRequest: pending.userText,
+        detectedLanguage: pending.language,
+        status: execResult.success ? 'completed' : 'failed',
+        steps: revalidation.command.parameters?.steps?.length || 0,
+        completedSteps: execResult.data?.completed_steps || (execResult.success ? revalidation.command.parameters?.steps?.length : 0),
+        failedStep: execResult.success ? null : (execResult.data?.completed_steps !== undefined ? execResult.data.completed_steps + 1 : 1),
+        resultSummary: friendlyMsg
+      });
+
+      const fullResponse = {
+        success: execResult.success,
+        commandId,
+        userText: pending.userText,
+        sessionId: pending.sessionId,
+        language: pending.language,
+        interpretedCommand: revalidation.command,
+        result: execResult,
+        message: friendlyMsg
+      };
+
+      socket.emit(execResult.success ? 'task_completed' : 'task_failed', fullResponse);
+      socket.emit('ai_command_result', fullResponse);
+      if (typeof callback === 'function') callback(fullResponse);
+    });
+
+    // Phase 9 Task Cancel Event
+    socket.on('task_cancel', (payload, callback) => {
+      const { confirmationId } = payload || {};
+      if (confirmationId && pendingConfirmations.has(confirmationId)) {
+        const pending = pendingConfirmations.get(confirmationId);
+        pendingConfirmations.delete(confirmationId);
+        const cancelMsg = pending.language === 'hinglish'
+          ? 'Task cancel kar diya gaya.'
+          : (pending.language === 'hi' ? 'कार्य रद्द कर दिया गया।' : 'Task cancelled.');
+        const res = { success: true, cancelled: true, message: cancelMsg };
+        socket.emit('task_cancelled', res);
+        if (typeof callback === 'function') callback(res);
+        return;
+      }
+      const res = { success: true, cancelled: true, message: 'Task cancelled.' };
+      if (typeof callback === 'function') callback(res);
     });
 
     // Phase 5 Clear Session Event
@@ -670,7 +790,7 @@ app.get('/api/agent/status', (req, res) => {
  * }
  */
 app.post('/api/test-ai-command', async (req, res) => {
-  const { text, conversationHistory, sessionId, source = 'text' } = req.body || {};
+  const { text, conversationHistory, sessionId, source = 'text', languagePreference = 'auto' } = req.body || {};
   if (!text || typeof text !== 'string') {
     return res.status(200).json({
       success: false,
@@ -692,7 +812,26 @@ app.post('/api/test-ai-command', async (req, res) => {
     });
   }
 
-  const interpretation = await interpretCommand(text, context || []);
+  const interpretation = await interpretCommand(text, context || [], languagePreference);
+
+  // Phase 9 Language Switch Directives
+  if (interpretation.isLanguageSwitch) {
+    if (sessionId && !conversationHistory) {
+      sessionStore.addMessage(sessionId, {
+        role: 'assistant',
+        content: interpretation.message,
+        action: 'set_language',
+        success: true
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      isLanguageSwitch: true,
+      targetLanguage: interpretation.targetLanguage,
+      language: interpretation.targetLanguage,
+      message: interpretation.message
+    });
+  }
 
   if (!interpretation.success) {
     const failMsg = interpretation.message || "I can't perform that action yet.";
@@ -706,6 +845,7 @@ app.post('/api/test-ai-command', async (req, res) => {
     }
     return res.status(200).json({
       success: false,
+      language: interpretation.language,
       interpretedCommand: interpretation.interpretedCommand,
       error: interpretation.error || interpretation.message,
       message: failMsg
@@ -716,7 +856,8 @@ app.post('/api/test-ai-command', async (req, res) => {
     interpretation.validatedCommand.action,
     interpretation.validatedCommand.parameters,
     { success: true, data: latestSystemMetrics },
-    text
+    text,
+    interpretation.language
   );
 
   appendAuditLog(sessionId || 'api-test', interpretation.validatedCommand.action, true);
@@ -730,10 +871,40 @@ app.post('/api/test-ai-command', async (req, res) => {
     });
   }
 
+  let confirmationId = undefined;
+  if (interpretation.requiresConfirmation) {
+    confirmationId = `conf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    pendingConfirmations.set(confirmationId, {
+      confirmationId,
+      userText: text,
+      sessionId,
+      language: interpretation.language,
+      validatedCommand: interpretation.validatedCommand,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 120000
+    });
+  }
+
   return res.status(200).json({
     success: true,
     command: interpretation.validatedCommand,
+    language: interpretation.language,
+    requiresConfirmation: interpretation.requiresConfirmation,
+    confirmationId,
+    confirmationPrompt: interpretation.confirmationPrompt,
     message: previewMessage
+  });
+});
+
+/**
+ * Task execution history endpoint (Phase 9)
+ * GET /api/tasks/history
+ */
+app.get('/api/tasks/history', (req, res) => {
+  res.status(200).json({
+    success: true,
+    count: taskExecutionHistory.length,
+    tasks: taskExecutionHistory
   });
 });
 

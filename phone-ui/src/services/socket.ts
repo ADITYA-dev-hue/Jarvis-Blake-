@@ -5,7 +5,10 @@ import {
   AiCommandResponse,
   ConnectionState,
   AgentStatusState,
-  AgentStatusEvent
+  AgentStatusEvent,
+  TaskProgressEvent,
+  TaskConfirmationRequiredEvent,
+  LanguagePreference
 } from '../types/command';
 import { SystemMetrics } from '../types/system';
 
@@ -25,6 +28,9 @@ class JarvisSocketService {
   private connectionListeners: Set<(state: ConnectionState) => void> = new Set();
   private agentStatusListeners: Set<(status: AgentStatusState, agentId: string) => void> = new Set();
   private systemMetricsListeners: Set<(metrics: SystemMetrics) => void> = new Set();
+  private taskProgressListeners: Set<(progress: TaskProgressEvent) => void> = new Set();
+  private taskConfirmationListeners: Set<(event: TaskConfirmationRequiredEvent) => void> = new Set();
+  private languageChangedListeners: Set<(data: { language: string; message: string }) => void> = new Set();
 
   constructor() {
     this.initSocket();
@@ -100,6 +106,27 @@ class JarvisSocketService {
         this.systemMetricsListeners.forEach((listener) => listener(data));
       }
     });
+
+    // Phase 8 Real-time Task Step Progress streaming
+    this.socket.on('task_progress', (data: TaskProgressEvent) => {
+      if (data && typeof data.step === 'number') {
+        this.taskProgressListeners.forEach((listener) => listener(data));
+      }
+    });
+
+    // Phase 9 Multi-step Task Confirmation Required
+    this.socket.on('task_confirmation_required', (data: TaskConfirmationRequiredEvent) => {
+      if (data && data.confirmationId) {
+        this.taskConfirmationListeners.forEach((listener) => listener(data));
+      }
+    });
+
+    // Phase 9 Language Switch Event
+    this.socket.on('language_changed', (data: { language: string; message: string }) => {
+      if (data) {
+        this.languageChangedListeners.forEach((listener) => listener(data));
+      }
+    });
   }
 
   private updateConnectionState(state: ConnectionState) {
@@ -143,6 +170,21 @@ class JarvisSocketService {
   public onSystemMetrics(listener: (metrics: SystemMetrics) => void): () => void {
     this.systemMetricsListeners.add(listener);
     return () => this.systemMetricsListeners.delete(listener);
+  }
+
+  public onTaskProgress(listener: (progress: TaskProgressEvent) => void): () => void {
+    this.taskProgressListeners.add(listener);
+    return () => this.taskProgressListeners.delete(listener);
+  }
+
+  public onTaskConfirmationRequired(listener: (event: TaskConfirmationRequiredEvent) => void): () => void {
+    this.taskConfirmationListeners.add(listener);
+    return () => this.taskConfirmationListeners.delete(listener);
+  }
+
+  public onLanguageChanged(listener: (data: { language: string; message: string }) => void): () => void {
+    this.languageChangedListeners.add(listener);
+    return () => this.languageChangedListeners.delete(listener);
   }
 
   public requestSystemMetrics(): void {
@@ -208,12 +250,13 @@ class JarvisSocketService {
   }
 
   /**
-   * Send a natural-language AI command through Socket.IO with session tracking
+   * Send a natural-language AI command through Socket.IO with session tracking and multilingual support
    */
   public async sendAiCommand(
     text: string,
     sessionId?: string,
-    source?: 'text' | 'voice'
+    source?: 'text' | 'voice',
+    languagePreference?: LanguagePreference
   ): Promise<AiCommandResponse> {
     if (!this.socket || !this.socket.connected) {
       throw new Error('IGRIS server is unavailable.');
@@ -226,7 +269,7 @@ class JarvisSocketService {
           userText: text,
           message: 'IGRIS AI is temporarily unavailable.'
         });
-      }, 10000);
+      }, 12000);
 
       const resultHandler = (response: AiCommandResponse) => {
         if (response && response.userText === text) {
@@ -240,7 +283,7 @@ class JarvisSocketService {
 
       this.socket?.emit(
         'ai_command',
-        { text, agentId: this.agentId, sessionId, source },
+        { text, agentId: this.agentId, sessionId, source, languagePreference },
         (ackResponse?: AiCommandResponse) => {
           if (ackResponse) {
             clearTimeout(timer);
@@ -249,6 +292,45 @@ class JarvisSocketService {
           }
         }
       );
+    });
+  }
+
+  /**
+   * Confirm a pending multi-step task requiring approval
+   */
+  public async confirmTask(confirmationId: string): Promise<any> {
+    if (!this.socket || !this.socket.connected) {
+      throw new Error('IGRIS server is unavailable.');
+    }
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        resolve({
+          success: false,
+          error: 'Task confirmation timed out.'
+        });
+      }, 30000);
+
+      this.socket?.emit('task_confirm', { confirmationId }, (response: any) => {
+        clearTimeout(timer);
+        resolve(response);
+      });
+    });
+  }
+
+  /**
+   * Cancel a pending multi-step task
+   */
+  public async cancelTask(confirmationId: string): Promise<any> {
+    if (!this.socket || !this.socket.connected) {
+      return { success: false, error: 'IGRIS server is unavailable.' };
+    }
+
+    return new Promise((resolve) => {
+      this.socket?.emit('task_cancel', { confirmationId }, (response: any) => {
+        resolve(response || { success: true, message: 'Task cancelled.' });
+      });
+      setTimeout(() => resolve({ success: true, message: 'Task cancelled.' }), 3000);
     });
   }
 

@@ -15,6 +15,7 @@ import urllib.parse
 import webbrowser
 import platform
 import subprocess
+import ctypes
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -23,6 +24,12 @@ from config import WORKSPACE_DIR
 
 # Maximum content limit for created text files
 MAX_FILE_CONTENT_LENGTH = 10000
+
+# Phase 8 - Multi-step Task Automation Constants
+MAX_TASK_STEPS = 10
+MAX_TYPE_TEXT_LENGTH = 1000
+MAX_WAIT_MS = 10000
+MAX_SEARCH_QUERY_LENGTH = 500
 
 # Whitelist of allowed extensions for creating text files
 ALLOWED_TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json"}
@@ -577,6 +584,228 @@ def handle_open_file(params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ==============================================================================
+# Phase 8 Handlers: Safe Multi-Step Task Automation
+# ==============================================================================
+
+_task_progress_callback: Optional[Callable[[int, int, str], None]] = None
+
+def set_task_progress_callback(cb: Optional[Callable[[int, int, str], None]]) -> None:
+    """Set optional callback invoked on each task step: (step_num, total_steps, action)."""
+    global _task_progress_callback
+    _task_progress_callback = cb
+
+
+def handle_type_text(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Safely type Unicode text into the currently active Windows application.
+    
+    Security:
+    - Text must be a non-empty string.
+    - Text length capped at MAX_TYPE_TEXT_LENGTH (1000 characters).
+    - Null bytes strictly forbidden.
+    - Does NOT execute text as a command or shell script.
+    - Pure Windows SendInput / keybd_event Unicode keystroke simulation.
+    """
+    raw_text = params.get("text")
+    if raw_text is None or not isinstance(raw_text, str):
+        raise ValueError("Missing or invalid 'text' parameter. Expected a non-empty string.")
+
+    if not raw_text:
+        raise ValueError("Parameter 'text' cannot be empty.")
+
+    if len(raw_text) > MAX_TYPE_TEXT_LENGTH:
+        raise ValueError(
+            f"Text length ({len(raw_text)}) exceeds maximum allowed limit of {MAX_TYPE_TEXT_LENGTH} characters."
+        )
+
+    if "\x00" in raw_text:
+        raise ValueError("Text contains forbidden null byte characters.")
+
+    # Safe Windows Unicode keystroke typing
+    try:
+        user32 = ctypes.windll.user32
+        KEYEVENTF_KEYUP = 0x0002
+        KEYEVENTF_UNICODE = 0x0004
+
+        for ch in raw_text:
+            code = ord(ch)
+            user32.keybd_event(0, code, KEYEVENTF_UNICODE, 0)
+            user32.keybd_event(0, code, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0)
+            time.sleep(0.01)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to type text: {exc}")
+
+    preview = raw_text[:40] + ("..." if len(raw_text) > 40 else "")
+    return {
+        "typed": True,
+        "length": len(raw_text),
+        "preview": preview,
+        "message": f"Typed text successfully: '{preview}'."
+    }
+
+
+def handle_wait(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Pause execution deterministically for a specified duration in milliseconds.
+    
+    Security:
+    - Milliseconds must be non-negative number.
+    - Capped at MAX_WAIT_MS (10,000 ms / 10s) to prevent hanging tasks.
+    """
+    raw_ms = params.get("milliseconds")
+    if raw_ms is None or not isinstance(raw_ms, (int, float)):
+        raise ValueError("Missing or invalid 'milliseconds' parameter. Expected a number.")
+
+    ms = float(raw_ms)
+    if ms < 0:
+        raise ValueError("Wait duration cannot be negative.")
+
+    if ms > MAX_WAIT_MS:
+        raise ValueError(f"Wait duration ({int(ms)} ms) exceeds maximum allowed limit of {MAX_WAIT_MS} ms.")
+
+    time.sleep(ms / 1000.0)
+    return {
+        "waited_ms": int(ms),
+        "message": f"Waited {int(ms)} milliseconds successfully."
+    }
+
+
+def handle_search_web(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute a safe Google search in default browser.
+    
+    Security:
+    - Query must be a non-empty string <= MAX_SEARCH_QUERY_LENGTH (500 characters).
+    - Query safely encoded via urllib.parse.quote_plus.
+    - Target URL strictly HTTPS Google search.
+    - Never executes query as a shell command.
+    - Rejects file://, javascript:, data: URIs.
+    """
+    raw_query = params.get("query")
+    if raw_query is None or not isinstance(raw_query, str):
+        raise ValueError("Missing or invalid 'query' parameter. Expected a non-empty string.")
+
+    query = raw_query.strip()
+    if not query:
+        raise ValueError("Search query cannot be empty.")
+
+    if len(query) > MAX_SEARCH_QUERY_LENGTH:
+        raise ValueError(
+            f"Search query length ({len(query)}) exceeds maximum allowed limit of {MAX_SEARCH_QUERY_LENGTH} characters."
+        )
+
+    lower_query = query.lower()
+    if lower_query.startswith("file:") or lower_query.startswith("javascript:") or lower_query.startswith("data:"):
+        raise PermissionError("Security violation: Forbidden URI scheme in search query.")
+
+    if any(ord(c) < 32 and c not in ('\t', '\n', '\r') for c in query):
+        raise ValueError("Search query contains forbidden control characters.")
+
+    encoded_query = urllib.parse.quote_plus(query)
+    search_url = f"https://www.google.com/search?q={encoded_query}"
+
+    # Delegate to handle_open_url to reuse HTTPS browser launching
+    handle_open_url({"url": search_url})
+    return {
+        "searched": True,
+        "query": query,
+        "url": search_url,
+        "message": f"Searched Google for '{query}' successfully."
+    }
+
+
+def handle_task(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute a sequence of approved safe commands sequentially.
+    
+    Security:
+    - 1 <= len(steps) <= MAX_TASK_STEPS (10 steps max).
+    - Prevents recursion: no step may contain action 'task'.
+    - Validates every step before and during execution.
+    - Stops immediately if any step fails.
+    - Dispatches progress notifications if callback configured.
+    """
+    raw_steps = params.get("steps")
+    if raw_steps is None or not isinstance(raw_steps, list):
+        raise ValueError("Missing or invalid 'steps' parameter. Expected a list of command steps.")
+
+    if len(raw_steps) == 0:
+        raise ValueError("Task contains zero steps. At least one step is required.")
+
+    if len(raw_steps) > MAX_TASK_STEPS:
+        raise ValueError(
+            f"Task steps count ({len(raw_steps)}) exceeds maximum allowed limit of {MAX_TASK_STEPS} steps."
+        )
+
+    # 1. Pre-validation of all steps
+    for i, step in enumerate(raw_steps):
+        if not isinstance(step, dict):
+            raise ValueError(f"Task step {i + 1} is invalid: expected an object with 'action' and 'parameters'.")
+
+        step_action = step.get("action")
+        if not step_action or not isinstance(step_action, str):
+            raise ValueError(f"Task step {i + 1} is missing a valid 'action' string.")
+
+        clean_step_action = step_action.strip().lower()
+        if clean_step_action == "task":
+            raise PermissionError(f"Security violation: Nested task recursion in step {i + 1} is strictly forbidden.")
+
+        if clean_step_action not in COMMAND_REGISTRY:
+            raise PermissionError(f"Security violation: Action '{clean_step_action}' in step {i + 1} is not permitted.")
+
+        step_params = step.get("parameters", {})
+        if not isinstance(step_params, dict):
+            raise ValueError(f"Task step {i + 1} has invalid parameters: expected an object.")
+
+        COMMAND_REGISTRY[clean_step_action].validate_params(step_params)
+
+    # 2. Sequential execution
+    executed_steps = []
+    for i, step in enumerate(raw_steps):
+        step_action = step["action"].strip().lower()
+        step_params = step.get("parameters", {})
+
+        if _task_progress_callback:
+            try:
+                import inspect
+                sig = inspect.signature(_task_progress_callback)
+                if len(sig.parameters) == 1:
+                    _task_progress_callback({"step": i + 1, "total": len(raw_steps), "action": step_action})
+                else:
+                    _task_progress_callback(i + 1, len(raw_steps), step_action)
+            except Exception:
+                try:
+                    _task_progress_callback(i + 1, len(raw_steps), step_action)
+                except Exception:
+                    pass
+
+        step_res = execute_registered_command(step_action, step_params)
+        executed_steps.append({
+            "step": i + 1,
+            "action": step_action,
+            "success": step_res["success"],
+            "data": step_res.get("data"),
+            "error": step_res.get("error")
+        })
+
+        if not step_res["success"]:
+            return {
+                "success": False,
+                "action": "task",
+                "completed_steps": i,
+                "total_steps": len(raw_steps),
+                "error": f"Step {i + 1} ({step_action}) failed: {step_res.get('error', 'Execution error')}",
+                "steps": executed_steps,
+                "message": f"Task stopped at step {i + 1} due to error."
+            }
+
+    return {
+        "success": True,
+        "action": "task",
+        "completed_steps": len(raw_steps),
+        "total_steps": len(raw_steps),
+        "steps": executed_steps,
+        "message": f"Task completed successfully ({len(raw_steps)} steps executed)."
+    }
+
+
+# ==============================================================================
 # Central Command Registry Definition
 # ==============================================================================
 
@@ -664,6 +893,30 @@ COMMAND_REGISTRY: Dict[str, CommandSpec] = {
         description="Open an existing safe file with its default application.",
         executor=handle_open_file,
         required_params=["path"]
+    ),
+    "type_text": CommandSpec(
+        action="type_text",
+        description="Type text into the currently active Windows window.",
+        executor=handle_type_text,
+        required_params=["text"]
+    ),
+    "wait": CommandSpec(
+        action="wait",
+        description="Wait/pause for specified milliseconds.",
+        executor=handle_wait,
+        required_params=["milliseconds"]
+    ),
+    "search_web": CommandSpec(
+        action="search_web",
+        description="Search Google via the default browser.",
+        executor=handle_search_web,
+        required_params=["query"]
+    ),
+    "task": CommandSpec(
+        action="task",
+        description="Execute a safe multi-step sequential task.",
+        executor=handle_task,
+        required_params=["steps"]
     )
 }
 
@@ -700,6 +953,14 @@ def execute_registered_command(command: str, params: Dict[str, Any]) -> Dict[str
     try:
         spec.validate_params(params or {})
         result_data = spec.executor(params or {})
+        if isinstance(result_data, dict) and result_data.get("success") is False:
+            return {
+                "success": False,
+                "action": clean_cmd,
+                "message": result_data.get("message", "Command execution failed."),
+                "data": result_data,
+                "error": result_data.get("error") or result_data.get("message")
+            }
         return {
             "success": True,
             "action": clean_cmd,

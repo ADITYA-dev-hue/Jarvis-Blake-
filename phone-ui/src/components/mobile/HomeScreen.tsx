@@ -15,10 +15,13 @@ import {
   Volume2,
   Code,
   Globe,
-  Radio
+  Radio,
+  Clock,
+  Zap
 } from 'lucide-react';
 import { SystemStatusData, HistoryItem } from '../../types/command';
 import audioFx from '../../services/audioFx';
+import useDeviceStatus from '../../services/useDeviceStatus';
 
 interface HomeScreenProps {
   systemData: SystemStatusData | null;
@@ -39,6 +42,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateTab,
   onRequestConfirm
 }) => {
+  const deviceStatus = useDeviceStatus(systemData);
   const [activeCategory, setActiveCategory] = useState<'commands' | 'apps' | 'files' | 'system'>('commands');
   const [waveformBars, setWaveformBars] = useState<number[]>([35, 60, 25, 80, 95, 50, 75, 40, 85, 55, 30, 65]);
 
@@ -66,12 +70,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
-  const cpuVal = Math.round(systemData?.cpu ?? 18);
-  const ramUsed = systemData?.memory?.used ?? '6.2';
-  const ramTotal = systemData?.memory?.total ?? '16 GB';
-  const diskUsed = systemData?.disk?.used ?? '624';
-  const diskTotal = systemData?.disk?.total ?? '800 GB';
-
   // Format history or fallback
   const displayHistory = history.length > 0 ? history.slice(0, 5) : [
     { id: '1', label: 'Open Chrome', timestamp: '2 min ago', commandId: 'c1', action: 'open_url', success: true },
@@ -82,9 +80,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   ];
 
   return (
-    <div className="flex flex-col gap-4 pb-28">
+    <div className="flex flex-col gap-3.5 pb-28">
+      {/* 0. Live Device Date & Time HUD */}
+      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#070b14]/90 border border-red-950/70 text-xs font-mono shadow-[0_2px_12px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span className="text-slate-200 font-semibold truncate text-[11px] sm:text-xs">
+            {deviceStatus.currentDate}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-cyan-400 font-bold shrink-0 ml-2">
+          <Clock className="w-3.5 h-3.5 text-red-500" />
+          <span className="text-[11px] sm:text-xs">{deviceStatus.currentTime}</span>
+        </div>
+      </div>
+
       {/* 1. Quick Category Pills */}
-      <div className="grid grid-cols-4 gap-2 pt-1">
+      <div className="grid grid-cols-4 gap-2 pt-0.5">
         {[
           { id: 'commands', label: 'COMMANDS' },
           { id: 'apps', label: 'APPS' },
@@ -291,9 +303,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-mono">
                 <Lock className="w-3 h-3 text-red-400" /> CPU
               </div>
-              <div className="font-mono text-sm font-bold text-white mt-1">{cpuVal}%</div>
+              <div className="font-mono text-sm font-bold text-white mt-1">{deviceStatus.cpuPercent}%</div>
               <div className="w-full h-1 bg-slate-900 rounded-full mt-1.5 overflow-hidden">
-                <div className="h-full bg-red-500 rounded-full" style={{ width: `${cpuVal}%` }} />
+                <div
+                  className="h-full bg-red-500 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, deviceStatus.cpuPercent))}%` }}
+                />
               </div>
             </div>
 
@@ -302,11 +317,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-mono">
                 <HardDrive className="w-3 h-3 text-cyan-400" /> RAM
               </div>
-              <div className="font-mono text-xs font-bold text-white mt-1 truncate">
-                {ramUsed} / {ramTotal}
+              <div className="font-mono text-xs font-bold text-white mt-1 truncate" title={`${deviceStatus.ramUsed} / ${deviceStatus.ramTotal}`}>
+                {deviceStatus.ramUsed} / {deviceStatus.ramTotal}
               </div>
               <div className="w-full h-1 bg-slate-900 rounded-full mt-1.5 overflow-hidden">
-                <div className="h-full bg-red-500 rounded-full" style={{ width: '39%' }} />
+                <div
+                  className="h-full bg-cyan-500 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, deviceStatus.ramPercent))}%` }}
+                />
               </div>
             </div>
 
@@ -331,40 +349,58 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <HardDrive className="w-4 h-4 text-cyan-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] text-slate-400">Storage</div>
-                <div className="font-bold text-white truncate">{diskUsed} / {diskTotal}</div>
+                <div className="font-bold text-white truncate" title={`${deviceStatus.diskUsed} / ${deviceStatus.diskTotal}`}>
+                  {deviceStatus.diskUsed} / {deviceStatus.diskTotal}
+                </div>
                 <div className="w-full h-1 bg-slate-900 rounded-full mt-1 overflow-hidden">
-                  <div className="h-full bg-red-500" style={{ width: '78%' }} />
+                  <div
+                    className="h-full bg-red-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, deviceStatus.diskPercent))}%` }}
+                  />
                 </div>
               </div>
             </div>
 
             <div className="p-2.5 rounded-xl bg-black/50 border border-slate-900 flex items-center gap-2.5">
-              <Battery className="w-5 h-5 text-emerald-400 shrink-0" />
-              <div>
-                <div className="text-[10px] text-slate-400">Battery</div>
-                <div className="font-bold text-emerald-400">84%</div>
-                <div className="text-[9px] text-slate-500">2h 36m</div>
+              {deviceStatus.battery.charging ? (
+                <Zap className="w-5 h-5 text-amber-400 shrink-0" />
+              ) : (
+                <Battery className={`w-5 h-5 shrink-0 ${deviceStatus.battery.percent > 20 ? 'text-emerald-400' : 'text-rose-400'}`} />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                  <span>Battery</span>
+                  <span className="text-[8px] text-slate-500 uppercase">{deviceStatus.battery.source}</span>
+                </div>
+                <div className={`font-bold ${deviceStatus.battery.percent > 20 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {deviceStatus.battery.percent}%
+                </div>
+                <div className="text-[9px] text-slate-400 truncate">
+                  {deviceStatus.battery.charging ? 'Charging' : (deviceStatus.battery.source === 'device' ? 'On Battery' : 'Discharging')}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Grid row 3: Wi-Fi & Bluetooth */}
+          {/* Grid row 3: Network & Uptime */}
           <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
             <div className="p-2.5 rounded-xl bg-black/50 border border-slate-900 flex items-center gap-2.5">
-              <Wifi className="w-4 h-4 text-cyan-400" />
+              <Wifi className={`w-4 h-4 ${deviceStatus.isOnline ? 'text-cyan-400' : 'text-slate-500'}`} />
               <div>
-                <div className="text-[10px] text-slate-400">Wi-Fi</div>
-                <div className="text-cyan-400 font-semibold">Connected</div>
-                <div className="text-[9px] text-slate-500">58 Mbps</div>
+                <div className="text-[10px] text-slate-400">Network</div>
+                <div className={`${deviceStatus.isOnline ? 'text-cyan-400' : 'text-rose-400'} font-semibold`}>
+                  {deviceStatus.networkStatus}
+                </div>
+                <div className="text-[9px] text-slate-500">{deviceStatus.isOnline ? 'Low Latency' : 'Offline'}</div>
               </div>
             </div>
 
             <div className="p-2.5 rounded-xl bg-black/50 border border-slate-900 flex items-center gap-2.5">
               <Bluetooth className="w-4 h-4 text-cyan-400" />
               <div>
-                <div className="text-[10px] text-slate-400">Bluetooth</div>
-                <div className="text-cyan-400 font-semibold">Connected</div>
-                <div className="text-[9px] text-slate-500">2 Devices</div>
+                <div className="text-[10px] text-slate-400">Uptime</div>
+                <div className="text-cyan-400 font-semibold">{deviceStatus.uptimeText}</div>
+                <div className="text-[9px] text-slate-500">Live Telemetry</div>
               </div>
             </div>
           </div>

@@ -15,7 +15,7 @@ type BlakeState = 'LISTENING' | 'PROCESSING' | 'EXECUTING' | 'COMPLETE';
 
 interface AskBlakeScreenProps {
   onClose: () => void;
-  onSendAiCommand: (text: string, source: 'text' | 'voice') => Promise<void>;
+  onSendAiCommand: (text: string, source: 'text' | 'voice') => Promise<any>;
   isExecuting: boolean;
   stepMessage: string | null;
 }
@@ -96,15 +96,24 @@ export const AskBlakeScreen: React.FC<AskBlakeScreenProps> = ({
     setBlakeState('PROCESSING');
 
     try {
-      await onSendAiCommand(text, source);
+      const res = await onSendAiCommand(text, source);
       setBlakeState('COMPLETE');
-      audioFx.playSuccess();
 
-      const blakeReply = `Directive acknowledged. Protocol executed successfully for "${text}".`;
-      setConversation((prev) => [...prev, { role: 'blake', text: blakeReply, time: timeStr }]);
+      if (res && res.success === false) {
+        audioFx.playAlert();
+        const failReply = res.message || `Security or validation failure on request: "${text}". Protocol halted.`;
+        setConversation((prev) => [...prev, { role: 'blake', text: failReply, time: timeStr }]);
+        if (speakResponses) {
+          ttsService.speak(failReply, 'en-IN');
+        }
+      } else {
+        audioFx.playSuccess();
+        const blakeReply = res?.message || `Directive acknowledged. Protocol executed successfully for "${text}".`;
+        setConversation((prev) => [...prev, { role: 'blake', text: blakeReply, time: timeStr }]);
 
-      if (speakResponses) {
-        ttsService.speak(blakeReply, 'en-IN');
+        if (speakResponses) {
+          ttsService.speak(blakeReply, 'en-IN');
+        }
       }
     } catch {
       setBlakeState('COMPLETE');

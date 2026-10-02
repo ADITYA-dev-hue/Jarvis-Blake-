@@ -10,7 +10,7 @@
 // Application whitelist matching the laptop agent
 const ALLOWED_APPS = new Set(['notepad', 'calculator', 'paint', 'explorer', 'code', 'chrome']);
 
-// Allowed command actions (9 safe actions)
+// Allowed command actions (13 safe actions)
 const ALLOWED_ACTIONS = new Set([
   'system_status',
   'open_url',
@@ -20,11 +20,19 @@ const ALLOWED_ACTIONS = new Set([
   'list_folder',
   'get_file_info',
   'create_text_file',
-  'open_file'
+  'open_file',
+  'type_text',
+  'wait',
+  'search_web',
+  'task'
 ]);
 
-// Maximum file content length (10,000 characters)
+// Maximum limits
 const MAX_FILE_CONTENT_LENGTH = 10000;
+const MAX_TASK_STEPS = 10;
+const MAX_TYPE_TEXT_LENGTH = 1000;
+const MAX_WAIT_MS = 10000;
+const MAX_SEARCH_QUERY_LENGTH = 500;
 
 // Allowed file extensions for creating text files
 const ALLOWED_CREATE_EXTENSIONS = new Set(['.txt', '.md', '.csv', '.json']);
@@ -399,6 +407,168 @@ function validateCommand(parsed) {
     };
   }
 
+  // 10. Validation for type_text
+  if (action === 'type_text') {
+    const rawText = parameters.text;
+    if (rawText === undefined || rawText === null) {
+      return { valid: false, error: "Missing required 'text' parameter." };
+    }
+    if (typeof rawText !== 'string') {
+      return { valid: false, error: "Parameter 'text' must be a string." };
+    }
+    if (rawText.length === 0) {
+      return { valid: false, error: "Parameter 'text' cannot be empty." };
+    }
+    if (rawText.length > MAX_TYPE_TEXT_LENGTH) {
+      return {
+        valid: false,
+        error: `Text length (${rawText.length}) exceeds maximum allowed limit of ${MAX_TYPE_TEXT_LENGTH} characters.`
+      };
+    }
+    if (rawText.includes('\x00')) {
+      return { valid: false, error: "Text contains forbidden characters." };
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'type_text',
+        parameters: {
+          text: rawText
+        }
+      }
+    };
+  }
+
+  // 11. Validation for wait
+  if (action === 'wait') {
+    const rawMs = parameters.milliseconds !== undefined ? parameters.milliseconds : parameters.ms;
+    if (rawMs === undefined || rawMs === null) {
+      return { valid: false, error: "Missing required 'milliseconds' parameter." };
+    }
+    if (typeof rawMs !== 'number' || isNaN(rawMs)) {
+      return { valid: false, error: "Parameter 'milliseconds' must be a number." };
+    }
+    if (rawMs < 0) {
+      return { valid: false, error: "Wait duration cannot be negative." };
+    }
+    if (rawMs > MAX_WAIT_MS) {
+      return {
+        valid: false,
+        error: `Wait duration (${rawMs} ms) exceeds maximum allowed limit of ${MAX_WAIT_MS} milliseconds.`
+      };
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'wait',
+        parameters: {
+          milliseconds: Math.round(rawMs)
+        }
+      }
+    };
+  }
+
+  // 12. Validation for search_web
+  if (action === 'search_web') {
+    const rawQuery = parameters.query;
+    if (rawQuery === undefined || rawQuery === null) {
+      return { valid: false, error: "Missing required 'query' parameter." };
+    }
+    if (typeof rawQuery !== 'string') {
+      return { valid: false, error: "Parameter 'query' must be a string." };
+    }
+    const trimmed = rawQuery.trim();
+    if (trimmed.length === 0) {
+      return { valid: false, error: "Search query cannot be empty." };
+    }
+    if (trimmed.length > MAX_SEARCH_QUERY_LENGTH) {
+      return {
+        valid: false,
+        error: `Search query exceeds maximum allowed limit of ${MAX_SEARCH_QUERY_LENGTH} characters.`
+      };
+    }
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith('file:') || lower.startsWith('javascript:') || lower.startsWith('data:')) {
+      return { valid: false, error: "Security violation: Forbidden URI scheme in search query." };
+    }
+    if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(trimmed)) {
+      return { valid: false, error: "Search query contains forbidden control characters." };
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'search_web',
+        parameters: {
+          query: trimmed
+        }
+      }
+    };
+  }
+
+  // 13. Validation for task
+  if (action === 'task') {
+    const rawSteps = parameters.steps;
+    if (!rawSteps || !Array.isArray(rawSteps)) {
+      return { valid: false, error: "Parameter 'steps' must be an array of steps." };
+    }
+    if (rawSteps.length === 0) {
+      return { valid: false, error: "Task must contain at least one step." };
+    }
+    if (rawSteps.length > MAX_TASK_STEPS) {
+      return {
+        valid: false,
+        error: `Task step count (${rawSteps.length}) exceeds maximum allowed limit of ${MAX_TASK_STEPS} steps.`
+      };
+    }
+
+    const validatedSteps = [];
+    for (let i = 0; i < rawSteps.length; i++) {
+      const step = rawSteps[i];
+      if (!step || typeof step !== 'object') {
+        return { valid: false, error: `Task step ${i + 1} must be an object.` };
+      }
+      if (typeof step.action !== 'string') {
+        return { valid: false, error: `Task step ${i + 1} is missing action.` };
+      }
+      const stepAction = step.action.trim().toLowerCase();
+      if (stepAction === 'task') {
+        return {
+          valid: false,
+          error: `Security violation: Nested task recursion in step ${i + 1} is strictly forbidden.`
+        };
+      }
+      if (!ALLOWED_ACTIONS.has(stepAction)) {
+        return {
+          valid: false,
+          error: `Disallowed action '${stepAction}' in task step ${i + 1}.`
+        };
+      }
+
+      // Validate each step using validateCommand
+      const stepValidation = validateCommand({ action: stepAction, parameters: step.parameters || {} });
+      if (!stepValidation.valid) {
+        return {
+          valid: false,
+          error: `Task step ${i + 1} validation failed: ${stepValidation.error}`
+        };
+      }
+      validatedSteps.push(stepValidation.command);
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'task',
+        parameters: {
+          steps: validatedSteps
+        }
+      }
+    };
+  }
+
   return {
     valid: false,
     error: "Unknown validation error."
@@ -412,5 +582,9 @@ module.exports = {
   ALLOWED_ACTIONS,
   ALLOWED_CREATE_EXTENSIONS,
   ALLOWED_OPEN_EXTENSIONS,
-  MAX_FILE_CONTENT_LENGTH
+  MAX_FILE_CONTENT_LENGTH,
+  MAX_TASK_STEPS,
+  MAX_TYPE_TEXT_LENGTH,
+  MAX_WAIT_MS,
+  MAX_SEARCH_QUERY_LENGTH
 };

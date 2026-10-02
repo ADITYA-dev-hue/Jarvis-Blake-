@@ -19,7 +19,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import config
-from commands import execute_safe_command
+from commands import execute_safe_command, set_task_progress_callback
 from system_monitor import metrics_reporter
 
 # Setup lightweight security audit logger (1MB max, 2 backups)
@@ -186,6 +186,21 @@ def on_execute_command(payload):
     print(f"[EXECUTE] {action}", flush=True)
 
     # 5. Pass to existing safe command router
+    def notify_step_progress(step_idx: int, total_steps: int, step_action: str):
+        try:
+            sio.emit("task_progress", {
+                "commandId": command_id,
+                "step": step_idx,
+                "total": total_steps,
+                "action": step_action
+            })
+            print(f"[TASK PROGRESS] Step {step_idx}/{total_steps}: {step_action}", flush=True)
+        except Exception:
+            pass
+
+    if action == "task":
+        set_task_progress_callback(notify_step_progress)
+
     try:
         execution_result = execute_safe_command(action, parameters)
         is_success = execution_result.get("success", False)
@@ -195,6 +210,9 @@ def on_execute_command(payload):
         is_success = False
         result_data = None
         err_msg = str(exc)
+    finally:
+        if action == "task":
+            set_task_progress_callback(None)
 
     # Log execution result and record audit
     if is_success:

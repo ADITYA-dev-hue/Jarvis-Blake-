@@ -1,4 +1,25 @@
-export type CommandAction = 'system_status' | 'open_url' | 'create_folder' | 'open_app' | 'unsupported';
+export type CommandAction =
+  | 'system_status'
+  | 'open_url'
+  | 'create_folder'
+  | 'open_app'
+  | 'open_folder'
+  | 'list_folder'
+  | 'get_file_info'
+  | 'create_text_file'
+  | 'open_file'
+  | 'type_text'
+  | 'wait'
+  | 'search_web'
+  | 'task'
+  | 'unsupported';
+
+export interface TaskProgressEvent {
+  commandId: string;
+  step: number;
+  total: number;
+  action: string;
+}
 
 export interface CommandPayload {
   commandId?: string;
@@ -57,10 +78,59 @@ export interface CommandResult {
   error: string | null;
 }
 
+export type LanguagePreference = 'auto' | 'en' | 'hinglish' | 'hi';
+
+export interface TaskConfirmationRequiredEvent {
+  success: boolean;
+  requiresConfirmation: boolean;
+  confirmationId: string;
+  userText: string;
+  sessionId?: string;
+  language: string;
+  interpretedCommand?: {
+    action: string;
+    parameters: Record<string, any>;
+  };
+  validatedCommand?: {
+    action: string;
+    parameters: Record<string, any>;
+  };
+  taskSummary: {
+    steps: number;
+    stepActions: string[];
+  };
+  message: string;
+}
+
+export interface TaskHistoryItem {
+  taskId: string;
+  timestamp: string;
+  originalUserRequest: string;
+  detectedLanguage: string;
+  status: 'completed' | 'failed' | 'cancelled';
+  steps: number;
+  completedSteps: number;
+  failedStep: number | null;
+  resultSummary: string;
+}
+
 export interface AiCommandResponse {
   success: boolean;
   userText: string;
+  language?: string;
+  isLanguageSwitch?: boolean;
+  targetLanguage?: string;
+  requiresConfirmation?: boolean;
+  confirmationId?: string;
+  taskSummary?: {
+    steps: number;
+    stepActions: string[];
+  };
   interpretedCommand?: {
+    action: string;
+    parameters: Record<string, any>;
+  };
+  validatedCommand?: {
     action: string;
     parameters: Record<string, any>;
   };

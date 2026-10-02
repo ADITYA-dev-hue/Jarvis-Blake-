@@ -94,6 +94,7 @@ if not is_agent_online():
     agent_proc = subprocess.Popen(
         [sys.executable, "agent.py"],
         cwd=str(BASE_DIR / "laptop-agent"),
+        env={**os.environ, "IGRIS_SERVER_URL": "http://localhost:3000", "JARVIS_SERVER_URL": "http://localhost:3000"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )

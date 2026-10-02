@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   Monitor,
   Columns,
-  Wifi
+  Wifi,
+  Battery
 } from 'lucide-react';
 import { ConnectionState, AgentStatusState, AiStatusState, SystemStatusData, HistoryItem } from '../../types/command';
 import { MobileTab } from './types';
@@ -28,6 +29,7 @@ import AutomationScreen from './AutomationScreen';
 import SecurityScreen from './SecurityScreen';
 import AskBlakeScreen from './AskBlakeScreen';
 import audioFx from '../../services/audioFx';
+import useDeviceStatus from '../../services/useDeviceStatus';
 import { ViewMode } from '../MultiViewSwitcher';
 
 interface MobileAppProps {
@@ -38,7 +40,7 @@ interface MobileAppProps {
   systemData: SystemStatusData | null;
   history: HistoryItem[];
   onExecuteCommand: (action: string, params: Record<string, any>, label: string) => Promise<void>;
-  onSendAiCommand: (text: string, source: 'text' | 'voice') => Promise<void>;
+  onSendAiCommand: (text: string, source: 'text' | 'voice') => Promise<any>;
   onSwitchToDesktop?: () => void;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
@@ -61,6 +63,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
   isExecuting,
   stepMessage
 }) => {
+  const deviceStatus = useDeviceStatus(systemData);
   const [activeTab, setActiveTab] = useState<MobileTab>('home');
   const [showMoreDrawer, setShowMoreDrawer] = useState(false);
   const [showAskBlake, setShowAskBlake] = useState(false);
@@ -127,12 +130,12 @@ export const MobileApp: React.FC<MobileAppProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[420px] min-h-screen bg-[#03060c] text-slate-100 flex flex-col font-sans select-none relative overflow-x-hidden border-x border-red-950/40 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+    <div className="w-full sm:max-w-[420px] min-h-screen bg-[#03060c] text-slate-100 flex flex-col font-sans select-none relative overflow-x-hidden sm:border-x sm:border-red-950/40 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
       {/* ========================================================================= */}
-      {/* 1. IPHONE STATUS BAR                                                     */}
+      {/* 1. IPHONE / DEVICE STATUS BAR                                            */}
       {/* ========================================================================= */}
       <div className="h-10 w-full px-5 flex items-center justify-between text-xs font-mono text-slate-300 z-40 bg-[#03060c]/90 backdrop-blur-md sticky top-0">
-        <span className="font-bold tracking-tight">9:41</span>
+        <span className="font-bold tracking-tight text-white">{deviceStatus.timeOnly}</span>
 
         {/* Dynamic Island Pill */}
         <div className="w-24 h-5 rounded-full bg-black border border-slate-900 flex items-center justify-center gap-1.5 shadow-inner">
@@ -141,9 +144,16 @@ export const MobileApp: React.FC<MobileAppProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Wifi className="w-3.5 h-3.5 text-slate-300" />
-          <div className="flex items-center text-[10px] text-emerald-400">
-            <span className="font-bold">100%</span>
+          <Wifi className={`w-3.5 h-3.5 ${deviceStatus.isOnline ? 'text-slate-300' : 'text-slate-600'}`} />
+          <div className={`flex items-center gap-1 text-[10px] ${
+            deviceStatus.battery.percent > 20 ? 'text-emerald-400' : 'text-rose-400'
+          }`}>
+            {deviceStatus.battery.charging ? (
+              <Zap className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+            ) : (
+              <Battery className="w-3.5 h-3.5" />
+            )}
+            <span className="font-bold">{deviceStatus.battery.percent}%</span>
           </div>
         </div>
       </div>
