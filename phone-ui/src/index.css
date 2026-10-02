@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: #03060c;
+  color: #f8fafc;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for HUD panels */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(4, 7, 15, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+/* Cyber Futuristic HUD Animations */
+@keyframes spinClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinCounterClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes pulseGlowRed {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.35), inset 0 0 12px rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.7), inset 0 0 18px rgba(239, 68, 68, 0.4);
+    border-color: rgba(239, 68, 68, 1);
+  }
+}
+
+@keyframes pulseGlowCyan {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(6, 182, 212, 0.75);
+  }
+}
+
+@keyframes scanline {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 100%;
+  }
+}
+
+.animate-spin-slow {
+  animation: spinClockwise 28s linear infinite;
+}
+
+.animate-spin-medium {
+  animation: spinClockwise 14s linear infinite;
+}
+
+.animate-spin-reverse-slow {
+  animation: spinCounterClockwise 36s linear infinite;
+}
+
+.animate-spin-reverse-fast {
+  animation: spinCounterClockwise 8s linear infinite;
+}
+
+.animate-pulse-red {
+  animation: pulseGlowRed 3s ease-in-out infinite;
+}
+
+.animate-pulse-cyan {
+  animation: pulseGlowCyan 2.5s ease-in-out infinite;
+}
+
+/* Glowing text & drop shadows */
+.glow-text-red {
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.7), 0 0 20px rgba(220, 38, 38, 0.5);
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.8), 0 0 20px rgba(14, 165, 233, 0.5);
+}
+
+.glow-border-red {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.35);
+}
+
+.cyber-grid-bg {
+  background-image: 
+    linear-gradient(to right, rgba(239, 68, 68, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(239, 68, 68, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.cyber-glass-panel {
+  background: rgba(6, 10, 19, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.cyber-glass-panel:hover {
+  border-color: rgba(239, 68, 68, 0.45);
+}
