@@ -1,0 +1,25 @@
+{
+  "name": "igris-desktop-companion",
+  "version": "1.0.0",
+  "description": "2.5D Local Windows Desktop AI Companion for IGRIS",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "igris",
+    "desktop-companion",
+    "ai",
+    "2.5d"
+  ],
+  "author": "Aditya Prakash",
+  "license": "MIT",
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1"
+  }
+}

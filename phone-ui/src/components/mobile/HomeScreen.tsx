@@ -23,6 +23,7 @@ import { SystemStatusData, HistoryItem } from '../../types/command';
 import audioFx from '../../services/audioFx';
 import useDeviceStatus from '../../services/useDeviceStatus';
 import NowPlayingCard from '../dashboard/NowPlayingCard';
+import VoiceAssistant from '../VoiceAssistant';
 
 interface HomeScreenProps {
   systemData: SystemStatusData | null;
@@ -30,6 +31,7 @@ interface HomeScreenProps {
   history: HistoryItem[];
   onExecuteCommand: (action: string, params: Record<string, any>, label: string) => Promise<void>;
   onOpenAskBlake: () => void;
+  onOpenVoiceSettings?: () => void;
   onNavigateTab: (tab: 'control' | 'apps' | 'files' | 'system') => void;
   onRequestConfirm: (action: string, params: Record<string, any>, label: string, desc: string) => void;
 }
@@ -40,6 +42,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   history,
   onExecuteCommand,
   onOpenAskBlake,
+  onOpenVoiceSettings,
   onNavigateTab,
   onRequestConfirm
 }) => {
@@ -165,6 +168,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="absolute top-1 right-1 w-3 h-3 border-t-2 border-r-2 border-red-500 pointer-events-none" />
         <div className="absolute bottom-1 left-1 w-3 h-3 border-b-2 border-l-2 border-red-500 pointer-events-none" />
       </div>
+
+      {/* 2b. Phase 12 - Hands-Free Voice Assistant Card */}
+      <VoiceAssistant onOpenSettings={onOpenVoiceSettings} />
 
       {/* 3. Quick Commands */}
       <div className="flex flex-col gap-2.5">

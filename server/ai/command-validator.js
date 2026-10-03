@@ -30,7 +30,16 @@ const ALLOWED_ACTIONS = new Set([
   'minimize_window',
   'maximize_window',
   'restore_window',
-  'media_status'
+  'media_status',
+  // Phase 11 - Smart File & Workspace Assistant
+  'search_files',
+  'read_file',
+  'search_file_content',
+  'analyze_file',
+  'summarize_file',
+  'analyze_folder',
+  'workspace_insights',
+  'list_supported_files'
 ]);
 
 // Maximum limits
@@ -644,6 +653,231 @@ function validateCommand(parsed) {
       valid: true,
       command: {
         action: 'media_status',
+        parameters: {}
+      }
+    };
+  }
+
+  // 17. Validation for search_files
+  if (action === 'search_files') {
+    const query = typeof parameters.query === 'string' ? parameters.query.trim().slice(0, MAX_SEARCH_QUERY_LENGTH) : '';
+    const extension = typeof parameters.extension === 'string' ? parameters.extension.trim().slice(0, 20) : '';
+    const file_type = typeof parameters.file_type === 'string' ? parameters.file_type.trim().slice(0, 50) : (typeof parameters.type === 'string' ? parameters.type.trim().slice(0, 50) : '');
+    
+    let folder_path = '';
+    const rawFolder = parameters.folder_path || parameters.folder;
+    if (rawFolder !== undefined && rawFolder !== null && typeof rawFolder === 'string') {
+      const folderRes = validateSafeWorkspacePath(rawFolder, true);
+      if (!folderRes.valid) return folderRes;
+      folder_path = folderRes.path;
+    }
+
+    let max_results = 100;
+    if (parameters.max_results !== undefined && parameters.max_results !== null) {
+      const parsed = parseInt(parameters.max_results, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        max_results = Math.min(parsed, 100);
+      }
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'search_files',
+        parameters: {
+          query,
+          extension,
+          folder_path,
+          file_type,
+          max_results
+        }
+      }
+    };
+  }
+
+  // 18. Validation for read_file
+  if (action === 'read_file') {
+    const rawPath = parameters.path || parameters.file_path || parameters.file_name;
+    const pathRes = validateSafeWorkspacePath(rawPath, false);
+    if (!pathRes.valid) return pathRes;
+
+    const baseName = pathRes.path.split(/[\/\\]/).pop().toLowerCase();
+    if (baseName.startsWith('.env') || baseName.includes('credential') || baseName.includes('secret') || baseName.includes('token') || baseName.endsWith('.pem') || baseName.endsWith('.key')) {
+      return { valid: false, error: "Access denied: Reading credentials or sensitive files is forbidden." };
+    }
+
+    let start_line = 1;
+    if (parameters.start_line !== undefined && parameters.start_line !== null) {
+      const parsed = parseInt(parameters.start_line, 10);
+      if (!isNaN(parsed) && parsed >= 1) start_line = parsed;
+    }
+
+    let end_line = null;
+    if (parameters.end_line !== undefined && parameters.end_line !== null) {
+      const parsed = parseInt(parameters.end_line, 10);
+      if (!isNaN(parsed) && parsed >= 1) end_line = parsed;
+    }
+
+    let max_lines = 200;
+    if (parameters.max_lines !== undefined && parameters.max_lines !== null) {
+      const parsed = parseInt(parameters.max_lines, 10);
+      if (!isNaN(parsed) && parsed > 0) max_lines = Math.min(parsed, 500);
+    }
+
+    const cleanParams = {
+      path: pathRes.path,
+      start_line,
+      max_lines
+    };
+    if (end_line !== null) cleanParams.end_line = end_line;
+
+    return {
+      valid: true,
+      command: {
+        action: 'read_file',
+        parameters: cleanParams
+      }
+    };
+  }
+
+  // 19. Validation for search_file_content
+  if (action === 'search_file_content') {
+    const rawQuery = parameters.query;
+    if (rawQuery === undefined || rawQuery === null || typeof rawQuery !== 'string' || rawQuery.trim().length === 0) {
+      return { valid: false, error: "Missing required 'query' parameter." };
+    }
+    const query = rawQuery.trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
+
+    let filePath = '';
+    const rawFile = parameters.file_path || parameters.path;
+    if (rawFile !== undefined && rawFile !== null && typeof rawFile === 'string' && rawFile.trim().length > 0) {
+      const fileRes = validateSafeWorkspacePath(rawFile, false);
+      if (!fileRes.valid) return fileRes;
+      filePath = fileRes.path;
+    }
+
+    let folderPath = '';
+    const rawFolder = parameters.folder_path || parameters.folder;
+    if (rawFolder !== undefined && rawFolder !== null && typeof rawFolder === 'string' && rawFolder.trim().length > 0) {
+      const folderRes = validateSafeWorkspacePath(rawFolder, true);
+      if (!folderRes.valid) return folderRes;
+      folderPath = folderRes.path;
+    }
+
+    const extension = typeof parameters.extension === 'string' ? parameters.extension.trim().slice(0, 20) : '';
+    let max_excerpts = 20;
+    if (parameters.max_excerpts !== undefined && parameters.max_excerpts !== null) {
+      const parsed = parseInt(parameters.max_excerpts, 10);
+      if (!isNaN(parsed) && parsed > 0) max_excerpts = Math.min(parsed, 50);
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'search_file_content',
+        parameters: {
+          query,
+          file_path: filePath,
+          folder_path: folderPath,
+          extension,
+          max_excerpts
+        }
+      }
+    };
+  }
+
+  // 20. Validation for analyze_file
+  if (action === 'analyze_file') {
+    const rawPath = parameters.path || parameters.file_path || parameters.file_name;
+    const pathRes = validateSafeWorkspacePath(rawPath, false);
+    if (!pathRes.valid) return pathRes;
+
+    const baseName = pathRes.path.split(/[\/\\]/).pop().toLowerCase();
+    if (baseName.startsWith('.env') || baseName.includes('credential') || baseName.includes('secret') || baseName.includes('token') || baseName.endsWith('.pem') || baseName.endsWith('.key')) {
+      return { valid: false, error: "Access denied: Analyzing credentials or sensitive files is forbidden." };
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'analyze_file',
+        parameters: {
+          path: pathRes.path
+        }
+      }
+    };
+  }
+
+  // 21. Validation for summarize_file
+  if (action === 'summarize_file') {
+    const rawPath = parameters.path || parameters.file_path || parameters.file_name;
+    const pathRes = validateSafeWorkspacePath(rawPath, false);
+    if (!pathRes.valid) return pathRes;
+
+    const baseName = pathRes.path.split(/[\/\\]/).pop().toLowerCase();
+    if (baseName.startsWith('.env') || baseName.includes('credential') || baseName.includes('secret') || baseName.includes('token') || baseName.endsWith('.pem') || baseName.endsWith('.key')) {
+      return { valid: false, error: "Access denied: Summarizing credentials or sensitive files is forbidden." };
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'summarize_file',
+        parameters: {
+          path: pathRes.path
+        }
+      }
+    };
+  }
+
+  // 22. Validation for analyze_folder
+  if (action === 'analyze_folder') {
+    let folder_path = '';
+    const rawFolder = parameters.folder_path || parameters.path || parameters.folder;
+    if (rawFolder !== undefined && rawFolder !== null && typeof rawFolder === 'string' && rawFolder.trim().length > 0) {
+      const folderRes = validateSafeWorkspacePath(rawFolder, true);
+      if (!folderRes.valid) return folderRes;
+      folder_path = folderRes.path;
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'analyze_folder',
+        parameters: {
+          folder_path
+        }
+      }
+    };
+  }
+
+  // 23. Validation for workspace_insights
+  if (action === 'workspace_insights') {
+    let folder_path = '';
+    const rawFolder = parameters.folder_path || parameters.path || parameters.folder;
+    if (rawFolder !== undefined && rawFolder !== null && typeof rawFolder === 'string' && rawFolder.trim().length > 0) {
+      const folderRes = validateSafeWorkspacePath(rawFolder, true);
+      if (!folderRes.valid) return folderRes;
+      folder_path = folderRes.path;
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'workspace_insights',
+        parameters: {
+          folder_path
+        }
+      }
+    };
+  }
+
+  // 24. Validation for list_supported_files
+  if (action === 'list_supported_files') {
+    return {
+      valid: true,
+      command: {
+        action: 'list_supported_files',
         parameters: {}
       }
     };

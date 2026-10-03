@@ -144,6 +144,43 @@ export const VoiceSettings: React.FC<VoiceSettingsProps> = ({ onClose, compact =
         </button>
       </div>
 
+      {/* Phase 12 Hands-Free & Conversation Mode Toggles */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => handleUpdate({ handsFreeEnabled: !(settings.handsFreeEnabled ?? true) })}
+          className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+            (settings.handsFreeEnabled ?? true)
+              ? 'bg-red-950/50 border-red-600/70 text-red-200 shadow-[0_0_15px_rgba(255,30,68,0.2)]'
+              : 'bg-black/50 border-slate-800 text-slate-500'
+          }`}
+        >
+          <div className="text-left">
+            <span className="text-[11px] font-semibold block">Hands-Free</span>
+            <span className="text-[9px] text-red-400">Wake Word: IGRIS</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/60 font-bold">
+            {(settings.handsFreeEnabled ?? true) ? 'ON' : 'OFF'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => handleUpdate({ conversationMode: !(settings.conversationMode ?? false) })}
+          className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+            settings.conversationMode
+              ? 'bg-cyan-950/50 border-cyan-600/70 text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+              : 'bg-black/50 border-slate-800 text-slate-500'
+          }`}
+        >
+          <div className="text-left">
+            <span className="text-[11px] font-semibold block">Conversation</span>
+            <span className="text-[9px] text-cyan-400">Follow-up Window</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/60 font-bold">
+            {settings.conversationMode ? 'ON' : 'OFF'}
+          </span>
+        </button>
+      </div>
+
       {/* Voice Selection */}
       <div className="flex flex-col gap-1.5">
         <label className="text-[11px] text-slate-400 flex items-center justify-between">

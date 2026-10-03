@@ -18,6 +18,7 @@ import DesktopDashboard from './components/desktop/DesktopDashboard';
 import MobileApp from './components/mobile/MobileApp';
 import ConversationHistory from './components/ConversationHistory';
 import ttsService from './services/textToSpeech';
+import voiceStateService from './services/voiceStateService';
 import conversationManager from './services/conversationManager';
 import { VoiceSettings as VoiceSettingsType } from './types/voice';
 import VoiceSettings from './components/VoiceSettings';
@@ -436,6 +437,18 @@ export function App() {
     }
   };
 
+  // Connect Phase 12 Hands-Free Voice State Machine to AI command dispatcher
+  useEffect(() => {
+    voiceStateService.setCommandDispatcher(async (text: string) => {
+      return handleSendAiCommand(text, 'voice');
+    });
+    voiceStateService.syncSettings();
+
+    return () => {
+      voiceStateService.destroy();
+    };
+  }, []);
+
   const handleClearConversation = async () => {
     try {
       const sessionId = conversationManager.getSessionId();
@@ -808,6 +821,7 @@ export function App() {
                   onExecuteCommand={handleExecuteCommand}
                   onSendAiCommand={handleSendAiCommand}
                   onSwitchToDesktop={() => setViewMode('desktop')}
+                  onOpenVoiceSettings={() => setIsVoiceModalOpen(true)}
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                   isExecuting={isExecuting}
@@ -896,6 +910,7 @@ export function App() {
             onExecuteCommand={handleExecuteCommand}
             onSendAiCommand={handleSendAiCommand}
             onSwitchToDesktop={() => setViewMode('desktop')}
+            onOpenVoiceSettings={() => setIsVoiceModalOpen(true)}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             isExecuting={isExecuting}

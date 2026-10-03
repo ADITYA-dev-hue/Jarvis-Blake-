@@ -1,0 +1,100 @@
+{
+  "name": "IGRIS",
+  "version": "1.0.0",
+  "author": "Aditya Prakash",
+  "description": "Original 2.5D Dark Futuristic Armored AI Knight Companion",
+  "palette": {
+    "armorPrimary": "#141822",
+    "armorSecondary": "#2e3646",
+    "energyCrimson": "#ff1a3c",
+    "energyGlow": "rgba(255, 26, 60, 0.45)",
+    "visorEyes": "#ff2a50"
+  },
+  "states": {
+    "idle": {
+      "label": "IDLE",
+      "speech": "All systems standing by, Commander. Awaiting directive.",
+      "energyIntensity": 1.0,
+      "eyeBrightness": 1.0,
+      "floatSpeed": 4.5,
+      "particleDensity": 25,
+      "haloEffect": "subtle_orbit"
+    },
+    "listening": {
+      "label": "LISTENING",
+      "speech": "I am listening. Speak your directive.",
+      "energyIntensity": 1.8,
+      "eyeBrightness": 2.2,
+      "floatSpeed": 3.0,
+      "particleDensity": 45,
+      "haloEffect": "pulsing_halo"
+    },
+    "thinking": {
+      "label": "THINKING",
+      "speech": "Processing intent and validating safety parameters...",
+      "energyIntensity": 1.4,
+      "eyeBrightness": 1.5,
+      "floatSpeed": 3.5,
+      "particleDensity": 35,
+      "haloEffect": "rotating_glyphs"
+    },
+    "executing": {
+      "label": "EXECUTING",
+      "speech": "Executing authorized task via laptop agent...",
+      "energyIntensity": 2.5,
+      "eyeBrightness": 2.0,
+      "floatSpeed": 2.0,
+      "particleDensity": 60,
+      "haloEffect": "surge_arc"
+    },
+    "speaking": {
+      "label": "SPEAKING",
+      "speech": "Speaking response via voice synthesizer...",
+      "energyIntensity": 1.6,
+      "eyeBrightness": 1.8,
+      "floatSpeed": 3.8,
+      "particleDensity": 30,
+      "haloEffect": "audio_waveform"
+    },
+    "success": {
+      "label": "SUCCESS",
+      "speech": "Task completed successfully with zero validation errors.",
+      "energyIntensity": 2.2,
+      "eyeBrightness": 2.5,
+      "floatSpeed": 4.0,
+      "particleDensity": 50,
+      "haloEffect": "radiant_bloom",
+      "autoResetSec": 4
+    },
+    "error": {
+      "label": "ERROR",
+      "speech": "Action blocked by security validator.",
+      "energyIntensity": 2.0,
+      "eyeBrightness": 2.0,
+      "floatSpeed": 2.5,
+      "particleDensity": 40,
+      "haloEffect": "warning_glitch",
+      "autoResetSec": 4
+    },
+    "offline": {
+      "label": "OFFLINE",
+      "speech": "IGRIS connection offline. Standing by to reconnect.",
+      "energyIntensity": 0.0,
+      "eyeBrightness": 0.1,
+      "floatSpeed": 0,
+      "particleDensity": 0,
+      "haloEffect": "none"
+    }
+  },
+  "layers": [
+    { "id": "aura", "name": "Ground Hologram Aura Rings", "zIndex": 1, "anchor": [0.5, 0.95] },
+    { "id": "cape", "name": "Shadow Mantle Cloak", "zIndex": 5, "anchor": [0.5, 0.35] },
+    { "id": "legs", "name": "Armored Legs & Greaves", "zIndex": 10, "anchor": [0.5, 0.7] },
+    { "id": "torso", "name": "Chest Cuirass & Power Core", "zIndex": 15, "anchor": [0.5, 0.45] },
+    { "id": "shoulders", "name": "Pauldrons & Forearms", "zIndex": 20, "anchor": [0.5, 0.35] },
+    { "id": "weapon", "name": "Dark Energy Broadsword", "zIndex": 22, "anchor": [0.8, 0.6] },
+    { "id": "head", "name": "Shadow Knight Helm", "zIndex": 25, "anchor": [0.5, 0.2] },
+    { "id": "eyes", "name": "Ruby Visor Eyes", "zIndex": 28, "anchor": [0.5, 0.2] },
+    { "id": "plume", "name": "Crimson Plasma Crest Plume", "zIndex": 30, "anchor": [0.5, 0.15] }
+  ]
+}

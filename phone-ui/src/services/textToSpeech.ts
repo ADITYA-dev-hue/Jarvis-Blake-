@@ -50,30 +50,43 @@ class TextToSpeechService {
    * @param text Natural language sentence to speak
    * @param lang BCP 47 language tag (default: 'en-IN')
    * @param mode Optional emotional mode (e.g. NORMAL, COMMAND, WARNING, ERROR)
+   * @param onEnd Optional completion callback when utterance finishes speaking
    */
-  public speak(text: string, lang: string = 'en-IN', mode?: EmotionalMode): void {
+  public speak(
+    text: string,
+    lang: string = 'en-IN',
+    mode?: EmotionalMode,
+    onEnd?: () => void
+  ): void {
     if (!this.isSupported()) {
       console.warn('[TTS] SpeechSynthesis is not supported in this browser.');
+      onEnd?.();
       return;
     }
 
     if (!text || typeof text !== 'string') {
+      onEnd?.();
       return;
     }
 
     const settings = voicePersonalityEngine.getSettings();
     if (!settings.voiceEnabled) {
+      onEnd?.();
       return;
     }
 
     // Clean text: strip code blocks, markdown, or JSON traces
     const cleaned = this.sanitizeTextForSpeech(text);
-    if (!cleaned) return;
+    if (!cleaned) {
+      onEnd?.();
+      return;
+    }
 
     // Duplicate speech prevention within 1 second
     const now = Date.now();
     if (this.lastSpokenText === cleaned && now - this.lastSpokenTime < 1000) {
       console.log('[TTS] Duplicate speech prevented.');
+      onEnd?.();
       return;
     }
 
@@ -105,16 +118,22 @@ class TextToSpeechService {
         }
       }
 
+      utterance.onend = () => {
+        onEnd?.();
+      };
+
       utterance.onerror = (ev) => {
         // 'interrupted' and 'canceled' are normal when stop() is called
         if (ev.error !== 'interrupted' && ev.error !== 'canceled') {
           console.warn('[TTS] Speech utterance error:', ev.error);
         }
+        onEnd?.();
       };
 
       window.speechSynthesis.speak(utterance);
     } catch (err) {
       console.error('[TTS] Error invoking speech synthesis:', err);
+      onEnd?.();
     }
   }
 

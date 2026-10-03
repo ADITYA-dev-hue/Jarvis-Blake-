@@ -1,0 +1,20 @@
+{
+  "companionEnabled": true,
+  "alwaysOnTop": true,
+  "startWithWindows": false,
+  "size": "large",
+  "opacity": 100,
+  "animationEnabled": true,
+  "rememberPosition": true,
+  "bounds": {
+    "x": 500,
+    "y": 600,
+    "width": 240,
+    "height": 380
+  },
+  "serverUrl": "http://localhost:3000",
+  "voiceEnabled": true,
+  "handsFreeEnabled": true,
+  "wakeWord": "igris",
+  "conversationMode": false
+}

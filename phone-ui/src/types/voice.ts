@@ -38,8 +38,28 @@ export interface VoicePersonalityProfile {
 }
 
 /**
- * Complete Voice Settings interface with full Phase 4 backward compatibility
- * and Phase 9.5 personality tuning parameters.
+ * Phase 12 Hands-Free Voice State Machine states
+ */
+export type VoiceState =
+  | 'STANDBY'
+  | 'LISTENING'
+  | 'PROCESSING'
+  | 'EXECUTING'
+  | 'SPEAKING'
+  | 'ERROR';
+
+/**
+ * Microphone privacy indicator states
+ */
+export type MicPrivacyState =
+  | 'MIC_OFF'
+  | 'MIC_STANDBY'
+  | 'MIC_LISTENING'
+  | 'MIC_PROCESSING';
+
+/**
+ * Complete Voice Settings interface with full Phase 4, Phase 9.5, and Phase 12
+ * hands-free voice & conversation mode extensions.
  */
 export interface VoiceSettings {
   voiceEnabled: boolean;
@@ -53,6 +73,30 @@ export interface VoiceSettings {
   tone?: VoiceTone;
   style?: VoiceStyle;
   emotionalMode?: EmotionalMode;
+  // Phase 12 Hands-Free Voice extensions
+  handsFreeEnabled?: boolean;
+  wakeWord?: string;
+  conversationMode?: boolean;
+}
+
+/**
+ * Wake Word engine callbacks
+ */
+export interface WakeWordCallbacks {
+  onWakeWord?: (detectedPhrase: string, remainingText?: string) => void;
+  onError?: (errorMessage: string, rawCode?: string) => void;
+  onListeningStateChange?: (isListening: boolean) => void;
+}
+
+/**
+ * Provider-independent Wake Word engine abstraction
+ */
+export interface IWakeWordEngine {
+  start(): void;
+  stop(): void;
+  isListening(): boolean;
+  onWakeWord(callback: (detectedPhrase: string, remainingText?: string) => void): () => void;
+  onError(callback: (error: string, code?: string) => void): () => void;
 }
 
 /**

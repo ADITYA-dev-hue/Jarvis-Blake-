@@ -7,7 +7,9 @@ import {
   Download,
   Plus,
   Trash2,
-  Search
+  Search,
+  BarChart2,
+  Eye
 } from 'lucide-react';
 import { FileItem } from './types';
 import audioFx from '../../services/audioFx';
@@ -80,13 +82,26 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ onExecuteCommand }) =>
           </h2>
           <p className="font-mono text-[10px] text-slate-400">Windows File System & Sandbox Browser</p>
         </div>
-        <button
-          onClick={() => { audioFx.playClick(); setShowCreateModal(true); }}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-950/80 border border-red-700 text-red-300 font-mono text-[10px] font-bold"
-        >
-          <Plus className="w-3 h-3" />
-          <span>New Folder</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              audioFx.playClick();
+              onExecuteCommand('workspace_insights', {}, 'Workspace Insights');
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-cyan-950/80 border border-cyan-700 text-cyan-300 font-mono text-[10px] font-bold"
+            title="Inspect codebase lines of code, languages, and complexity"
+          >
+            <BarChart2 className="w-3 h-3" />
+            <span>Insights</span>
+          </button>
+          <button
+            onClick={() => { audioFx.playClick(); setShowCreateModal(true); }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-950/80 border border-red-700 text-red-300 font-mono text-[10px] font-bold"
+          >
+            <Plus className="w-3 h-3" />
+            <span>New Folder</span>
+          </button>
+        </div>
       </div>
 
       {/* Storage Drives */}
@@ -175,6 +190,26 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ onExecuteCommand }) =>
               </div>
 
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    audioFx.playClick();
+                    onExecuteCommand('analyze_file', { path: file.name }, `Analyze: ${file.name}`);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-cyan-400 rounded"
+                  title="Analyze file symbols and structure"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    audioFx.playClick();
+                    onExecuteCommand('read_file', { path: file.name, start_line: 1, max_lines: 50 }, `Read: ${file.name}`);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-amber-400 rounded"
+                  title="Read bounded lines"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                </button>
                 <button
                   onClick={() => audioFx.playClick()}
                   className="p-1.5 text-slate-400 hover:text-cyan-400 rounded"

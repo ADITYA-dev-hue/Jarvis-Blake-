@@ -550,6 +550,82 @@ function formatMultilingualResponse(action, parameters = {}, result = {}, userTe
     return `Currently playing "${title}" on ${source}${artist}.`;
   }
 
+  // Phase 11 - Smart File & Workspace Assistant
+  if (action === 'search_files') {
+    const count = result?.data?.count !== undefined ? result.data.count : (result?.data?.files ? result.data.files.length : 0);
+    const q = parameters?.query ? ` "${parameters.query}"` : '';
+    if (count === 0) {
+      if (lang === 'hinglish') return `Koi matching file nahi mili${q}.`;
+      if (lang === 'hi') return `कोई मेल खाती फ़ाइल नहीं मिली${q}।`;
+      return `No matching files found${q}.`;
+    }
+    if (lang === 'hinglish') return `Workspace mein ${count} matching file${count === 1 ? '' : 's'} mile.`;
+    if (lang === 'hi') return `कार्यस्थान में ${count} मेल खाती फ़ाइलें मिलीं।`;
+    return `Found ${count} matching file${count === 1 ? '' : 's'} in workspace.`;
+  }
+
+  if (action === 'read_file') {
+    const lines = result?.data?.lines_returned || 0;
+    const file = parameters?.path || result?.data?.filename || 'file';
+    if (lang === 'hinglish') return `${file} se ${lines} lines read kiye gaye.`;
+    if (lang === 'hi') return `${file} से ${lines} पंक्तियाँ पढ़ी गईं।`;
+    return `Read ${lines} lines from ${file}.`;
+  }
+
+  if (action === 'search_file_content') {
+    const matches = result?.data?.total_matches !== undefined ? result.data.total_matches : (result?.data?.excerpts ? result.data.excerpts.length : 0);
+    const q = parameters?.query || '';
+    if (matches === 0) {
+      if (lang === 'hinglish') return `"${q}" ke liye koi matches nahi mile.`;
+      if (lang === 'hi') return `"${q}" के लिए कोई परिणाम नहीं मिला।`;
+      return `No matches found for "${q}".`;
+    }
+    if (lang === 'hinglish') return `"${q}" ke ${matches} match${matches === 1 ? '' : 'es'} mile.`;
+    if (lang === 'hi') return `"${q}" के लिए ${matches} परिणाम मिले।`;
+    return `Found ${matches} match${matches === 1 ? '' : 'es'} for "${q}".`;
+  }
+
+  if (action === 'analyze_file') {
+    const file = parameters?.path || result?.data?.filename || 'file';
+    const ftype = result?.data?.file_type || 'File';
+    if (lang === 'hinglish') return `${file} (${ftype}) ka analysis complete ho gaya.`;
+    if (lang === 'hi') return `${file} (${ftype}) का विश्लेषण पूरा हुआ।`;
+    return `Analysis of ${file} (${ftype}) completed.`;
+  }
+
+  if (action === 'summarize_file') {
+    const file = parameters?.path || result?.data?.filename || 'file';
+    const summary = result?.data?.summary;
+    if (summary) return summary;
+    if (lang === 'hinglish') return `${file} ki summary generate ho gayi.`;
+    if (lang === 'hi') return `${file} का सारांश तैयार हो गया।`;
+    return `Summary for ${file} generated.`;
+  }
+
+  if (action === 'analyze_folder') {
+    const folder = result?.data?.folder_path || parameters?.folder_path || 'workspace';
+    const files = result?.data?.total_files || 0;
+    const sz = result?.data?.total_size_formatted || '0 B';
+    if (lang === 'hinglish') return `Folder "${folder}" mein ${files} files hain (${sz}).`;
+    if (lang === 'hi') return `फ़ोल्डर "${folder}" में ${files} फ़ाइलें हैं (${sz})।`;
+    return `Folder "${folder}" contains ${files} files (${sz}).`;
+  }
+
+  if (action === 'workspace_insights') {
+    const lines = result?.data?.total_code_lines || 0;
+    const files = result?.data?.total_code_files || 0;
+    if (lang === 'hinglish') return `Workspace insights: ${files} code files mein total ${lines} lines of code hain.`;
+    if (lang === 'hi') return `कार्यस्थान अंतर्दृष्टि: ${files} कोड फ़ाइलों में कुल ${lines} कोड पंक्तियाँ हैं।`;
+    return `Workspace insights: ${lines} total code lines across ${files} code files.`;
+  }
+
+  if (action === 'list_supported_files') {
+    const total = result?.data?.total_files_in_workspace || 0;
+    if (lang === 'hinglish') return `Supported formats mein C, C++, Java, Python, JS/TS, PDFs aur data files shamil hain (${total} files workspace mein mile).`;
+    if (lang === 'hi') return `समर्थित प्रारूपों में C, C++, Java, Python, JS/TS, PDF और डेटा फ़ाइलें शामिल हैं (कार्यस्थान में ${total} फ़ाइलें मिलीं)।`;
+    return `Supported formats include C, C++, Java, Python, JS/TS, PDFs, and data files (${total} matching files in workspace).`;
+  }
+
   if (lang === 'hinglish') return 'Command successfully execute ho gaya.';
   if (lang === 'hi') return 'कमांड सफलतापूर्वक निष्पादित किया गया।';
   return 'Command executed successfully.';

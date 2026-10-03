@@ -442,17 +442,174 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
     };
   }
 
+  // Phase 11 - Workspace Insights (English, Hinglish, Hindi)
+  if (
+    lower.includes('workspace insights') ||
+    lower.includes('codebase insights') ||
+    lower.includes('lines of code') ||
+    clean.includes('कार्यस्थान अंतर्दृष्टि')
+  ) {
+    return {
+      action: 'workspace_insights',
+      parameters: {}
+    };
+  }
+
+  // Phase 11 - Read File (Bounded lines)
+  if (
+    (lower.startsWith('read ') || lower.includes('read lines') || lower.includes('show lines') || lower.includes('read file') || lower.includes('read karo') || lower.includes('padho') || clean.includes('पढ़ो')) &&
+    (lower.includes('.') || lower.includes('file'))
+  ) {
+    const fileMatch = clean.match(/([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)/i);
+    if (fileMatch) {
+      let start_line = 1;
+      let end_line = null;
+      const lineRangeMatch = clean.match(/lines?\s+(\d+)\s+(?:to|-|se)\s+(\d+)/i);
+      if (lineRangeMatch) {
+        start_line = parseInt(lineRangeMatch[1], 10);
+        end_line = parseInt(lineRangeMatch[2], 10);
+      }
+      const p = { path: fileMatch[1].replace(/["']/g, '') };
+      if (start_line > 1) p.start_line = start_line;
+      if (end_line) p.end_line = end_line;
+      return {
+        action: 'read_file',
+        parameters: p
+      };
+    }
+  }
+
+  // Phase 11 - Search File Content
+  if (
+    (lower.includes('search text') || lower.includes('search content') || lower.includes('find text')) ||
+    ((lower.includes('search for') || lower.includes('search')) && (lower.includes(' in ') || lower.includes(' inside ') || lower.includes('across files') || lower.includes('in files')))
+  ) {
+    const fileMatch = clean.match(/in\s+([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)/i);
+    const qMatch = clean.match(/(?:search\s+for|search\s+text|search\s+content|find\s+text)\s+['"]?([^'"]+?)['"]?\s+(?:in|inside|across)/i);
+    const query = qMatch ? qMatch[1].trim() : 'TODO';
+    const params = { query };
+    if (fileMatch) {
+      params.file_path = fileMatch[1].replace(/["']/g, '');
+    }
+    return {
+      action: 'search_file_content',
+      parameters: params
+    };
+  }
+
+  // Phase 11 - Search Files in Workspace (English, Hinglish, Hindi)
+  if (
+    lower.includes('search file') ||
+    lower.includes('search files') ||
+    lower.includes('find files') ||
+    lower.includes('find all') ||
+    lower.includes('files search') ||
+    lower.includes('files dhundho') ||
+    clean.includes('फ़ाइलें खोजो') ||
+    clean.includes('फाइलें खोजो') ||
+    clean.includes('फ़ाइलें') ||
+    clean.includes('फाइलें')
+  ) {
+    let extension = '';
+    let query = '';
+    if (lower.includes('python') || clean.includes('python') || clean.includes('पायथन')) {
+      extension = '.py';
+    } else if (lower.includes('cpp') || lower.includes('c++')) {
+      extension = '.cpp';
+    } else if (lower.includes('java')) {
+      extension = '.java';
+    } else {
+      const extMatch = clean.match(/\.([a-zA-Z0-9]+)\s+files/i) || clean.match(/files\s+(?:with|ending\s+in)\s+\.?([a-zA-Z0-9]+)/i);
+      if (extMatch) {
+        extension = '.' + extMatch[1].toLowerCase();
+      }
+    }
+    const qMatch = clean.match(/(?:matching|named|called)\s+['"]?([^'"]+)['"]?/i) || clean.match(/files?\s+['"]([^'"]+)['"]/i);
+    if (qMatch) {
+      query = qMatch[1].trim();
+    }
+    const params = {};
+    if (query) params.query = query;
+    if (extension) params.extension = extension;
+    return {
+      action: 'search_files',
+      parameters: params
+    };
+  }
+
+  // Phase 11 - Analyze File
+  if (
+    (lower.startsWith('analyze ') || lower.includes('analyze file') || lower.includes('inspect file') || lower.includes('analysis karo')) &&
+    (lower.includes('.') || lower.includes('file'))
+  ) {
+    const fileMatch = clean.match(/([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)/i);
+    if (fileMatch) {
+      return {
+        action: 'analyze_file',
+        parameters: { path: fileMatch[1].replace(/["']/g, '') }
+      };
+    }
+  }
+
+  // Phase 11 - Summarize File
+  if (
+    lower.startsWith('summarize ') ||
+    lower.includes('summary of') ||
+    lower.includes('ki summary do') ||
+    lower.includes('ka summary do')
+  ) {
+    const fileMatch = clean.match(/([a-zA-Z0-9_\-\.\/]+\.[a-zA-Z0-9]+)/i);
+    if (fileMatch) {
+      return {
+        action: 'summarize_file',
+        parameters: { path: fileMatch[1].replace(/["']/g, '') }
+      };
+    }
+  }
+
+  // Phase 11 - Analyze Folder
+  if (
+    lower.startsWith('analyze folder') ||
+    lower.includes('folder analysis') ||
+    lower.includes('analyze directory')
+  ) {
+    const fMatch = clean.match(/folder\s+([a-zA-Z0-9_\-\/]+)/i);
+    return {
+      action: 'analyze_folder',
+      parameters: { folder_path: fMatch ? fMatch[1].trim() : '' }
+    };
+  }
+
+  // Phase 11 - List Supported Files
+  if (
+    lower.includes('supported files') ||
+    lower.includes('file types are supported') ||
+    lower.includes('supported file types') ||
+    lower.includes('supported formats')
+  ) {
+    return {
+      action: 'list_supported_files',
+      parameters: {}
+    };
+  }
+
   // 10. Web Search (English, Hinglish, Hindi)
   if (
-    lower.startsWith('search ') ||
-    lower.includes('search for') ||
-    lower.includes('search google for') ||
-    lower.includes('google pe') ||
-    lower.includes('google par') ||
-    lower.includes('search karo') ||
-    lower.includes('search kar do') ||
-    clean.includes('खोजो') ||
-    (lower.includes('search') && (lower.includes('google') || lower.includes('chrome') || lower.includes('web')))
+    !lower.includes('file') &&
+    !lower.includes('files') &&
+    !clean.includes('फ़ाइल') &&
+    !clean.includes('फाइल') &&
+    (
+      lower.startsWith('search ') ||
+      lower.includes('search for') ||
+      lower.includes('search google for') ||
+      lower.includes('google pe') ||
+      lower.includes('google par') ||
+      lower.includes('search karo') ||
+      lower.includes('search kar do') ||
+      clean.includes('खोजो') ||
+      (lower.includes('search') && (lower.includes('google') || lower.includes('chrome') || lower.includes('web')))
+    )
   ) {
     let query = clean
       .replace(/^search\s+(?:google\s+for|on\s+google\s+for|for)?\s+/i, '')
@@ -554,7 +711,7 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
 
   // Phase 10 - Window Focus (English, Hinglish, Hindi)
   if (
-    (lower.includes('focus') || lower.includes('samne lao') || lower.includes('front') || clean.includes('फ़ोकस') || clean.includes('सामने लाओ')) &&
+    (lower.includes('focus') || lower.includes('samne lao') || lower.includes('front') || (lower.includes('show') && lower.includes('window')) || clean.includes('फ़ोकस') || clean.includes('सामने लाओ')) &&
     (lower.includes('chrome') || lower.includes('notepad') || lower.includes('calc') || lower.includes('paint') || lower.includes('code') || lower.includes('explorer') || clean.includes('क्रोम') || clean.includes('नोटपैड'))
   ) {
     let targetApp = 'chrome';
@@ -631,6 +788,7 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
     lower.includes('battery') ||
     lower.includes('uptime') ||
     lower.includes('performance') ||
+    lower.includes('performing') ||
     lower.includes('kitna use ho raha hai') ||
     lower.includes('kitna chal raha hai') ||
     lower.includes('status') ||

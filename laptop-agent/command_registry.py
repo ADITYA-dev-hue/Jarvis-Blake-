@@ -21,6 +21,12 @@ from typing import Any, Callable, Dict, List, Optional
 
 import psutil
 from config import WORKSPACE_DIR
+from sensitive_data import is_sensitive_file
+from file_analyzer import (
+    ALL_SUPPORTED_EXTENSIONS,
+    SUPPORTED_CODE_EXTENSIONS,
+    SUPPORTED_DOC_EXTENSIONS,
+)
 
 # Maximum content limit for created text files
 MAX_FILE_CONTENT_LENGTH = 10000
@@ -449,10 +455,10 @@ def handle_get_file_info(params: Dict[str, Any]) -> Dict[str, Any]:
     Security:
     - Path must resolve strictly inside WORKSPACE_DIR.
     - Target must exist and be a regular file.
-    - Returns metadata ONLY (filename, type, size, modified time, relative path).
+    - Returns metadata ONLY (filename, type, size, modified time, relative path, category, is_sensitive).
     - NEVER returns file contents, passwords, or secrets.
     """
-    raw_path = params.get("path") if "path" in params else params.get("file_name")
+    raw_path = params.get("path") if "path" in params else (params.get("file_name") or params.get("file_path"))
     if not raw_path or not isinstance(raw_path, str):
         raise ValueError("Missing or invalid 'path' parameter. Expected a non-empty string.")
 
@@ -466,6 +472,16 @@ def handle_get_file_info(params: Dict[str, Any]) -> Dict[str, Any]:
 
     stat_res = target_path.stat()
     mod_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat_res.st_mtime))
+    ext = target_path.suffix.lower()
+
+    if ext in SUPPORTED_CODE_EXTENSIONS:
+        category = "code"
+    elif ext in (".pdf", ".md", ".txt"):
+        category = "document"
+    elif ext in (".json", ".csv"):
+        category = "data"
+    else:
+        category = "other"
 
     return {
         "filename": target_path.name,
@@ -474,7 +490,9 @@ def handle_get_file_info(params: Dict[str, Any]) -> Dict[str, Any]:
         "size_bytes": stat_res.st_size,
         "modified_time": mod_time,
         "relative_path": rel_path,
-        "extension": target_path.suffix.lower()
+        "extension": ext,
+        "category": category,
+        "is_sensitive": is_sensitive_file(target_path)
     }
 
 
@@ -775,6 +793,205 @@ def handle_media_status(params: Dict[str, Any]) -> Dict[str, Any]:
     return media_monitor.get_media_status()
 
 
+# ==============================================================================
+# Phase 11 Handlers: Safe Workspace File & Codebase Assistant
+# ==============================================================================
+
+def handle_search_files(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Search for files within the authorized workspace."""
+    query = params.get("query", "")
+    extension = params.get("extension", "")
+    raw_folder = params.get("folder_path") or params.get("folder")
+    file_type = params.get("file_type") or params.get("type") or ""
+    max_results = params.get("max_results", 100)
+    
+    if not isinstance(query, str):
+        query = str(query) if query is not None else ""
+    if not isinstance(extension, str):
+        extension = str(extension) if extension is not None else ""
+    if not isinstance(file_type, str):
+        file_type = str(file_type) if file_type is not None else ""
+
+    folder_target = None
+    if raw_folder and isinstance(raw_folder, str) and raw_folder.strip():
+        folder_target = resolve_workspace_path(raw_folder.strip(), must_exist=True, allow_root=True)
+
+    try:
+        max_results = min(int(max_results), 100)
+    except (ValueError, TypeError):
+        max_results = 100
+
+    from file_search import search_files as run_search_files
+    res = run_search_files(
+        WORKSPACE_DIR,
+        query=query,
+        extension=extension,
+        folder_path=folder_target,
+        file_type=file_type,
+        max_results=max_results
+    )
+    res["message"] = f"Found {res.get('count', 0)} files in workspace matching search."
+    return res
+
+
+def handle_read_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Read a bounded range of lines from an approved workspace file."""
+    raw_path = params.get("path") or params.get("file_path") or params.get("file_name")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter. Expected a non-empty string.")
+
+    target_path = resolve_workspace_path(raw_path, must_exist=True, allow_root=False)
+    base_dir = WORKSPACE_DIR.resolve()
+    rel_path = str(target_path.relative_to(base_dir)).replace("\\", "/")
+
+    start_line = params.get("start_line", 1)
+    end_line = params.get("end_line")
+    max_lines = params.get("max_lines", 200)
+
+    try:
+        start_line = max(1, int(start_line))
+    except (ValueError, TypeError):
+        start_line = 1
+
+    if end_line is not None:
+        try:
+            end_line = int(end_line)
+        except (ValueError, TypeError):
+            end_line = None
+
+    try:
+        max_lines = min(max(1, int(max_lines)), 500)
+    except (ValueError, TypeError):
+        max_lines = 200
+
+    from file_analyzer import read_file_content as run_read_file_content
+    res = run_read_file_content(
+        target_path,
+        rel_path,
+        start_line=start_line,
+        end_line=end_line,
+        max_lines=max_lines
+    )
+    res["message"] = f"Read {res.get('lines_returned', 0)} lines from '{target_path.name}'."
+    return res
+
+
+def handle_search_file_content(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Search for text within workspace file contents (code, docs, PDFs)."""
+    query = params.get("query")
+    if not query or not isinstance(query, str):
+        raise ValueError("Missing or invalid 'query' parameter. Expected a non-empty string.")
+
+    raw_file = params.get("file_path") or params.get("path")
+    raw_folder = params.get("folder_path") or params.get("folder")
+    extension = params.get("extension", "")
+    max_excerpts = params.get("max_excerpts", 20)
+
+    target_file = None
+    if raw_file and isinstance(raw_file, str) and raw_file.strip():
+        # Check if raw_file is actually a folder or a file
+        candidate = resolve_workspace_path(raw_file.strip(), must_exist=True, allow_root=True)
+        if candidate.is_file():
+            target_file = candidate
+        elif candidate.is_dir() and not raw_folder:
+            raw_folder = raw_file
+
+    folder_target = None
+    if raw_folder and isinstance(raw_folder, str) and raw_folder.strip():
+        folder_target = resolve_workspace_path(raw_folder.strip(), must_exist=True, allow_root=True)
+
+    try:
+        max_excerpts = min(max(1, int(max_excerpts)), 50)
+    except (ValueError, TypeError):
+        max_excerpts = 20
+
+    from file_search import search_file_content as run_search_file_content
+    res = run_search_file_content(
+        WORKSPACE_DIR,
+        query=query.strip(),
+        target_file=target_file,
+        folder_path=folder_target,
+        extension=str(extension),
+        max_excerpts=max_excerpts
+    )
+    res["message"] = f"Found {res.get('total_matches', 0)} matches across {res.get('files_searched', 0)} files."
+    return res
+
+
+def handle_analyze_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Analyze a supported file and extract verified facts vs inference."""
+    raw_path = params.get("path") or params.get("file_path") or params.get("file_name")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter. Expected a non-empty string.")
+
+    target_path = resolve_workspace_path(raw_path, must_exist=True, allow_root=False)
+    base_dir = WORKSPACE_DIR.resolve()
+    rel_path = str(target_path.relative_to(base_dir)).replace("\\", "/")
+
+    from file_analyzer import analyze_file as run_analyze_file
+    res = run_analyze_file(target_path, rel_path)
+    res["message"] = f"Analyzed '{target_path.name}' ({res.get('file_type', 'file')})."
+    return res
+
+
+def handle_summarize_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate a structured technical summary of an approved workspace file."""
+    raw_path = params.get("path") or params.get("file_path") or params.get("file_name")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter. Expected a non-empty string.")
+
+    target_path = resolve_workspace_path(raw_path, must_exist=True, allow_root=False)
+    base_dir = WORKSPACE_DIR.resolve()
+    rel_path = str(target_path.relative_to(base_dir)).replace("\\", "/")
+
+    from file_analyzer import summarize_file as run_summarize_file
+    res = run_summarize_file(target_path, rel_path)
+    res["message"] = f"Summary generated for '{target_path.name}'."
+    return res
+
+
+def handle_analyze_folder(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate structural metrics for a specific folder within workspace."""
+    raw_folder = params.get("folder_path") or params.get("path") or params.get("folder")
+    folder_target = None
+    if raw_folder and isinstance(raw_folder, str) and raw_folder.strip():
+        folder_target = resolve_workspace_path(raw_folder.strip(), must_exist=True, allow_root=True)
+
+    from workspace_analyzer import analyze_folder as run_analyze_folder
+    res = run_analyze_folder(WORKSPACE_DIR, folder_path=folder_target)
+    res["message"] = f"Folder '{res.get('folder_path')}' analyzed: {res.get('total_files')} files found."
+    return res
+
+
+def handle_workspace_insights(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate deep codebase and document insights across the workspace."""
+    raw_folder = params.get("folder_path") or params.get("path") or params.get("folder")
+    folder_target = None
+    if raw_folder and isinstance(raw_folder, str) and raw_folder.strip():
+        folder_target = resolve_workspace_path(raw_folder.strip(), must_exist=True, allow_root=True)
+
+    from workspace_analyzer import workspace_insights as run_workspace_insights
+    res = run_workspace_insights(WORKSPACE_DIR, folder_path=folder_target)
+    res["message"] = f"Workspace insights generated: {res.get('total_code_lines')} total code lines across {res.get('total_code_files')} code files."
+    return res
+
+
+def handle_list_supported_files(params: Dict[str, Any]) -> Dict[str, Any]:
+    """List supported file types and inspect files currently in workspace matching them."""
+    from file_analyzer import ALL_SUPPORTED_EXTENSIONS, SUPPORTED_CODE_EXTENSIONS, SUPPORTED_DOC_EXTENSIONS
+    from file_search import search_files as run_search_files
+
+    files_res = run_search_files(WORKSPACE_DIR, max_results=100)
+    return {
+        "supported_extensions": ALL_SUPPORTED_EXTENSIONS,
+        "supported_code_types": SUPPORTED_CODE_EXTENSIONS,
+        "supported_doc_types": SUPPORTED_DOC_EXTENSIONS,
+        "total_files_in_workspace": files_res.get("count", 0),
+        "files": files_res.get("files", []),
+        "message": f"Retrieved supported file specifications and {files_res.get('count', 0)} files in workspace."
+    }
+
+
 def handle_task(params: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a sequence of approved safe commands sequentially.
     
@@ -892,7 +1109,8 @@ class CommandSpec:
     PARAM_ALIASES = {
         "name": ["name", "folder_name"],
         "app": ["app", "app_name"],
-        "path": ["path", "folder_name", "file_name"]
+        "path": ["path", "folder_name", "file_name", "file_path", "folder_path", "folder"],
+        "query": ["query", "q", "search_term"]
     }
 
     FORBIDDEN_PARAMS = {
@@ -1030,6 +1248,54 @@ COMMAND_REGISTRY: Dict[str, CommandSpec] = {
         action="media_status",
         description="Retrieve desktop media playback metadata.",
         executor=handle_media_status,
+        required_params=[]
+    ),
+    "search_files": CommandSpec(
+        action="search_files",
+        description="Search for files in workspace by filename or extension.",
+        executor=handle_search_files,
+        required_params=[]
+    ),
+    "read_file": CommandSpec(
+        action="read_file",
+        description="Read lines from an approved workspace file.",
+        executor=handle_read_file,
+        required_params=["path"]
+    ),
+    "search_file_content": CommandSpec(
+        action="search_file_content",
+        description="Search text inside workspace file contents.",
+        executor=handle_search_file_content,
+        required_params=["query"]
+    ),
+    "analyze_file": CommandSpec(
+        action="analyze_file",
+        description="Analyze a code or document file and extract facts.",
+        executor=handle_analyze_file,
+        required_params=["path"]
+    ),
+    "summarize_file": CommandSpec(
+        action="summarize_file",
+        description="Generate a technical summary of a workspace file.",
+        executor=handle_summarize_file,
+        required_params=["path"]
+    ),
+    "analyze_folder": CommandSpec(
+        action="analyze_folder",
+        description="Analyze directory contents, file types, and sizes.",
+        executor=handle_analyze_folder,
+        required_params=[]
+    ),
+    "workspace_insights": CommandSpec(
+        action="workspace_insights",
+        description="Deep codebase insights, language breakdown, and complexity.",
+        executor=handle_workspace_insights,
+        required_params=[]
+    ),
+    "list_supported_files": CommandSpec(
+        action="list_supported_files",
+        description="List supported file extensions and workspace files.",
+        executor=handle_list_supported_files,
         required_params=[]
     )
 }

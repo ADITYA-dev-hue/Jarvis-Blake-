@@ -56,7 +56,10 @@ export const IGRIS_DEFAULT_VOICE_SETTINGS: Required<Omit<VoiceSettings, 'emotion
   volume: 1.0,
   tone: 'calm',
   style: 'commander',
-  emotionalMode: 'NORMAL'
+  emotionalMode: 'NORMAL',
+  handsFreeEnabled: true,
+  wakeWord: 'igris',
+  conversationMode: false
 };
 
 // Known keywords indicating masculine/deep voices in browser synthesizers
@@ -271,7 +274,10 @@ export class VoicePersonalityEngine {
             'GREETING'
           ].includes(parsed.emotionalMode)
             ? parsed.emotionalMode
-            : 'NORMAL'
+            : 'NORMAL',
+          handsFreeEnabled: typeof parsed.handsFreeEnabled === 'boolean' ? parsed.handsFreeEnabled : true,
+          wakeWord: typeof parsed.wakeWord === 'string' ? parsed.wakeWord : 'igris',
+          conversationMode: typeof parsed.conversationMode === 'boolean' ? parsed.conversationMode : false
         };
       }
     } catch (err) {

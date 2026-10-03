@@ -32,6 +32,8 @@ import audioFx from '../../services/audioFx';
 import useDeviceStatus from '../../services/useDeviceStatus';
 import { ViewMode } from '../MultiViewSwitcher';
 
+import VoiceStatus from '../VoiceStatus';
+
 interface MobileAppProps {
   connectionState: ConnectionState;
   agentStatus: AgentStatusState;
@@ -42,6 +44,7 @@ interface MobileAppProps {
   onExecuteCommand: (action: string, params: Record<string, any>, label: string) => Promise<void>;
   onSendAiCommand: (text: string, source: 'text' | 'voice') => Promise<any>;
   onSwitchToDesktop?: () => void;
+  onOpenVoiceSettings?: () => void;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   isExecuting: boolean;
@@ -58,6 +61,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
   onExecuteCommand,
   onSendAiCommand,
   onSwitchToDesktop,
+  onOpenVoiceSettings,
   viewMode,
   onViewModeChange,
   isExecuting,
@@ -137,10 +141,9 @@ export const MobileApp: React.FC<MobileAppProps> = ({
       <div className="h-10 w-full px-5 flex items-center justify-between text-xs font-mono text-slate-300 z-40 bg-[#03060c]/90 backdrop-blur-md sticky top-0">
         <span className="font-bold tracking-tight text-white">{deviceStatus.timeOnly}</span>
 
-        {/* Dynamic Island Pill */}
-        <div className="w-24 h-5 rounded-full bg-black border border-slate-900 flex items-center justify-center gap-1.5 shadow-inner">
-          <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-          <span className="text-[8px] tracking-widest text-red-400 font-bold uppercase">IGRIS</span>
+        {/* Dynamic Island Pill with Live Voice Status */}
+        <div className="flex items-center justify-center">
+          <VoiceStatus />
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -247,6 +250,7 @@ export const MobileApp: React.FC<MobileAppProps> = ({
             history={history}
             onExecuteCommand={onExecuteCommand}
             onOpenAskBlake={() => setShowAskBlake(true)}
+            onOpenVoiceSettings={onOpenVoiceSettings}
             onNavigateTab={(tab) => handleTabSelect(tab)}
             onRequestConfirm={handleRequestConfirm}
           />

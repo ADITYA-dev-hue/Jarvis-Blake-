@@ -18,6 +18,14 @@ export type CommandAction =
   | 'maximize_window'
   | 'restore_window'
   | 'media_status'
+  | 'search_files'
+  | 'read_file'
+  | 'search_file_content'
+  | 'analyze_file'
+  | 'summarize_file'
+  | 'analyze_folder'
+  | 'workspace_insights'
+  | 'list_supported_files'
   | 'unsupported';
 
 export interface WindowItem {
@@ -46,6 +54,61 @@ export interface TaskProgressEvent {
   step: number;
   total: number;
   action: string;
+}
+
+export interface WorkspaceFileMetadata {
+  filename: string;
+  relative_path: string;
+  size_bytes: number;
+  size_formatted: string;
+  extension: string;
+  category: 'code' | 'document' | 'data' | 'other' | string;
+  modified: string;
+  is_sensitive?: boolean;
+}
+
+export interface SearchFilesResult {
+  count: number;
+  files: WorkspaceFileMetadata[];
+  limited: boolean;
+}
+
+export interface ReadFileResult {
+  filename: string;
+  relative_path: string;
+  total_lines: number;
+  start_line: number;
+  end_line: number;
+  lines_returned: number;
+  content: string;
+  truncated: boolean;
+}
+
+export interface SearchContentExcerpt {
+  file: string;
+  line?: number;
+  page?: number;
+  excerpt: string;
+}
+
+export interface SearchContentResult {
+  query: string;
+  files_searched: number;
+  total_matches: number;
+  excerpts: SearchContentExcerpt[];
+}
+
+export interface WorkspaceInsightsResult {
+  total_files: number;
+  total_code_files: number;
+  total_code_lines: number;
+  total_comment_lines: number;
+  total_blank_lines: number;
+  comment_ratio_pct: number;
+  total_todos: number;
+  languages: Record<string, any>;
+  top_largest_files: Array<{ name: string; relative_path: string; size_formatted: string }>;
+  top_complex_files: Array<{ name: string; relative_path: string; language: string; total_lines: number }>;
 }
 
 export interface CommandPayload {
