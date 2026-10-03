@@ -21,6 +21,7 @@ const { validateCommand } = require('./command-validator');
 const {
   detectLanguage,
   checkLanguageSwitchCommand,
+  checkVoiceStyleSwitchCommand,
   formatMultilingualResponse,
   formatMultilingualError,
   formatConfirmationPrompt
@@ -87,6 +88,18 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
       parameters: { language: switchCheck.targetLanguage },
       message: switchCheck.message,
       targetLanguage: switchCheck.targetLanguage
+    };
+  }
+
+  // 1b. Voice style switch command check
+  const voiceCheck = checkVoiceStyleSwitchCommand(clean);
+  if (voiceCheck.isVoiceSwitch) {
+    return {
+      action: 'set_voice_style',
+      parameters: voiceCheck.voiceSettings || {},
+      message: voiceCheck.message,
+      isVoiceStyleSwitch: true,
+      voiceSettings: voiceCheck.voiceSettings
     };
   }
 
@@ -885,6 +898,21 @@ async function interpretCommand(userText, conversationHistory = [], languagePref
     };
   }
 
+  // 1b. Check if user is issuing a voice style switch command
+  const voiceCheck = checkVoiceStyleSwitchCommand(cleanText);
+  if (voiceCheck.isVoiceSwitch) {
+    return {
+      success: true,
+      isVoiceStyleSwitch: true,
+      voiceSettings: voiceCheck.voiceSettings,
+      userText: cleanText,
+      language: detectedLang,
+      interpretedCommand: { action: 'unsupported', parameters: {} },
+      validatedCommand: null,
+      message: voiceCheck.message
+    };
+  }
+
   const contextString = formatConversationContext(conversationHistory, MAX_CONTEXT_MESSAGES);
 
   if (process.env.JARVIS_DEBUG === 'true') {
@@ -999,6 +1027,7 @@ module.exports = {
   localSemanticInterpreter,
   detectLanguage,
   checkLanguageSwitchCommand,
+  checkVoiceStyleSwitchCommand,
   formatMultilingualResponse,
   formatMultilingualError,
   formatConfirmationPrompt,

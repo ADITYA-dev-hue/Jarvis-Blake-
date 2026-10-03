@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Mic,
-  MicOff,
   Volume2,
-  VolumeX,
   Radio,
   Loader2,
   CheckCircle2,
@@ -12,7 +10,9 @@ import {
 } from 'lucide-react';
 import speechService from '../services/speechRecognition';
 import ttsService from '../services/textToSpeech';
-import { MicState, VoiceSettings } from '../types/voice';
+import { MicState, VoiceSettings as VoiceSettingsType } from '../types/voice';
+import VoiceSettings from './VoiceSettings';
+import voicePersonalityEngine from '../services/voicePersonality';
 
 interface VoiceControlProps {
   onSendVoiceCommand: (transcript: string) => Promise<void>;
@@ -23,8 +23,8 @@ interface VoiceControlProps {
     message?: string;
     success?: boolean;
   } | null;
-  settings: VoiceSettings;
-  onUpdateSettings: (newSettings: Partial<VoiceSettings>) => void;
+  settings: VoiceSettingsType;
+  onUpdateSettings: (newSettings: Partial<VoiceSettingsType>) => void;
 }
 
 export const VoiceControl: React.FC<VoiceControlProps> = ({
@@ -80,10 +80,14 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({
     }
   }, []);
 
-  // Update speech service language when settings change
+  // Update speech service language when settings change & sync personality engine
   useEffect(() => {
     speechService.setLanguage(settings.language);
-  }, [settings.language]);
+    const unsub = voicePersonalityEngine.onSettingsChanged((s) => {
+      onUpdateSettings(s);
+    });
+    return unsub;
+  }, [settings.language, onUpdateSettings]);
 
   // Set up speech recognition callbacks
   useEffect(() => {
@@ -244,53 +248,8 @@ export const VoiceControl: React.FC<VoiceControlProps> = ({
 
       {/* Voice Settings Dropdown / Panel */}
       {showSettings && (
-        <div className="w-full bg-[#0a1324] border border-cyan-900/60 rounded-xl p-3 mb-4 z-10 text-xs font-mono text-slate-300 space-y-3 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-300">
-              {settings.voiceEnabled ? <Mic className="w-3.5 h-3.5 text-cyan-400" /> : <MicOff className="w-3.5 h-3.5 text-slate-500" />}
-              Voice Input
-            </span>
-            <button
-              onClick={() => onUpdateSettings({ voiceEnabled: !settings.voiceEnabled })}
-              className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-all ${
-                settings.voiceEnabled
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm shadow-cyan-500/20'
-                  : 'bg-slate-800 text-slate-400 border-slate-700'
-              }`}
-            >
-              {settings.voiceEnabled ? 'ENABLED' : 'DISABLED'}
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-300">
-              {settings.autoSpeakResponses ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-500" />}
-              Auto Speak Responses
-            </span>
-            <button
-              onClick={() => onUpdateSettings({ autoSpeakResponses: !settings.autoSpeakResponses })}
-              className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-all ${
-                settings.autoSpeakResponses
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm shadow-cyan-500/20'
-                  : 'bg-slate-800 text-slate-400 border-slate-700'
-              }`}
-            >
-              {settings.autoSpeakResponses ? 'ON' : 'OFF'}
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
-            <span className="text-slate-400">Language</span>
-            <select
-              value={settings.language}
-              onChange={(e) => onUpdateSettings({ language: e.target.value })}
-              className="bg-slate-900 border border-slate-700 text-slate-200 text-[11px] rounded px-2 py-1 focus:outline-none focus:border-cyan-500"
-            >
-              <option value="en-IN">English (India) [en-IN]</option>
-              <option value="en-US">English (US) [en-US]</option>
-              <option value="en-GB">English (UK) [en-GB]</option>
-            </select>
-          </div>
+        <div className="w-full mb-4 z-20 animate-in fade-in duration-200">
+          <VoiceSettings compact onClose={() => setShowSettings(false)} />
         </div>
       )}
 

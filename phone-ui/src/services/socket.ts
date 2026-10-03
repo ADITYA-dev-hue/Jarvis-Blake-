@@ -33,6 +33,7 @@ class JarvisSocketService {
   private taskProgressListeners: Set<(progress: TaskProgressEvent) => void> = new Set();
   private taskConfirmationListeners: Set<(event: TaskConfirmationRequiredEvent) => void> = new Set();
   private languageChangedListeners: Set<(data: { language: string; message: string }) => void> = new Set();
+  private voiceStyleChangedListeners: Set<(data: { voiceSettings: any; message: string }) => void> = new Set();
 
   constructor() {
     this.initSocket();
@@ -136,6 +137,13 @@ class JarvisSocketService {
         this.languageChangedListeners.forEach((listener) => listener(data));
       }
     });
+
+    // Phase 9.5 Voice Style Switch Event
+    this.socket.on('voice_style_changed', (data: { voiceSettings: any; message: string }) => {
+      if (data) {
+        this.voiceStyleChangedListeners.forEach((listener) => listener(data));
+      }
+    });
   }
 
   private updateConnectionState(state: ConnectionState) {
@@ -205,6 +213,11 @@ class JarvisSocketService {
   public onLanguageChanged(listener: (data: { language: string; message: string }) => void): () => void {
     this.languageChangedListeners.add(listener);
     return () => this.languageChangedListeners.delete(listener);
+  }
+
+  public onVoiceStyleChanged(listener: (data: { voiceSettings: any; message: string }) => void): () => void {
+    this.voiceStyleChangedListeners.add(listener);
+    return () => this.voiceStyleChangedListeners.delete(listener);
   }
 
   public requestSystemMetrics(): void {

@@ -48,6 +48,7 @@ import MultiViewSwitcher, { ViewMode } from '../MultiViewSwitcher';
 import SystemDashboard from '../dashboard/SystemDashboard';
 import WindowsManagerCard from '../dashboard/WindowsManagerCard';
 import NowPlayingCard from '../dashboard/NowPlayingCard';
+import VoiceSettings from '../VoiceSettings';
 
 interface DesktopDashboardProps {
   connectionState: ConnectionState;
@@ -1576,6 +1577,11 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* IGRIS Voice Personality Settings */}
+              <div className="w-full">
+                <VoiceSettings />
               </div>
             </div>
           )}

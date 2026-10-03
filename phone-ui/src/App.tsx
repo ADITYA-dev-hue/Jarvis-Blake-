@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { History as HistoryIcon } from 'lucide-react';
+import { History as HistoryIcon, Sliders } from 'lucide-react';
 import socketService from './services/socket';
 import {
   ConnectionState,
@@ -19,7 +19,9 @@ import MobileApp from './components/mobile/MobileApp';
 import ConversationHistory from './components/ConversationHistory';
 import ttsService from './services/textToSpeech';
 import conversationManager from './services/conversationManager';
-import { VoiceSettings } from './types/voice';
+import { VoiceSettings as VoiceSettingsType } from './types/voice';
+import VoiceSettings from './components/VoiceSettings';
+import voicePersonalityEngine from './services/voicePersonality';
 import MultiViewSwitcher, { ViewMode } from './components/MultiViewSwitcher';
 import SplashScreen from './components/SplashScreen';
 import LanguageSelector from './components/LanguageSelector';
@@ -28,7 +30,8 @@ import TaskProgressBanner from './components/TaskProgressBanner';
 import TaskHistoryModal from './components/TaskHistoryModal';
 
 const STORAGE_KEY_HISTORY = 'jarvis_phone_history_v1';
-const STORAGE_KEY_VOICE = 'jarvis_voice_settings_v1';
+const STORAGE_KEY_VOICE = 'igris_voice_settings';
+const LEGACY_STORAGE_KEY_VOICE = 'jarvis_voice_settings_v1';
 const STORAGE_KEY_LANG = 'jarvis_language_pref_v1';
 const STORAGE_KEY_VIEW_MODE = 'jarvis_view_mode_v1';
 
@@ -66,9 +69,9 @@ export function App() {
     }
   });
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [voiceSettings] = useState<VoiceSettings>(() => {
+  const [voiceSettings] = useState<VoiceSettingsType>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_VOICE);
+      const saved = localStorage.getItem(STORAGE_KEY_VOICE) || localStorage.getItem(LEGACY_STORAGE_KEY_VOICE);
       return saved
         ? JSON.parse(saved)
         : {
@@ -84,6 +87,7 @@ export function App() {
       };
     }
   });
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
 
   // Phase 9 Multilingual & Workflow states
   const [languagePref, setLanguagePref] = useState<LanguagePreference>(() => {
@@ -180,12 +184,20 @@ export function App() {
       }
     });
 
+    const unsubVoiceStyle = socketService.onVoiceStyleChanged((data) => {
+      if (data && data.voiceSettings) {
+        voicePersonalityEngine.updateSettings(data.voiceSettings);
+        addToast('info', data.message || 'Voice style updated.');
+      }
+    });
+
     return () => {
       unsubConn();
       unsubAgent();
       unsubProgress();
       unsubConfirm();
       unsubLanguage();
+      unsubVoiceStyle();
     };
   }, [addToast]);
 
@@ -700,6 +712,13 @@ export function App() {
           onClose={() => setIsHistoryModalOpen(false)}
           serverUrl={socketService.getServerUrl()}
         />
+        {isVoiceModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md">
+              <VoiceSettings compact onClose={() => setIsVoiceModalOpen(false)} />
+            </div>
+          </div>
+        )}
 
         {/* Persistent Floating Multi-View Controller Header */}
         <div className="w-full h-12 bg-[#050913]/95 backdrop-blur-md border-b border-red-950/80 px-4 flex items-center justify-between text-xs z-50 sticky top-0 flex-shrink-0">
@@ -725,6 +744,14 @@ export function App() {
             >
               <HistoryIcon className="w-3.5 h-3.5 text-cyan-400" />
               <span className="hidden sm:inline">WORKFLOWS</span>
+            </button>
+            <button
+              onClick={() => setIsVoiceModalOpen(true)}
+              title="Configure IGRIS Voice Personality"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-mono text-xs font-semibold transition-all"
+            >
+              <Sliders className="w-3.5 h-3.5 text-red-400" />
+              <span className="hidden sm:inline">VOICE</span>
             </button>
             <MultiViewSwitcher currentMode={viewMode} onModeChange={setViewMode} />
           </div>
@@ -815,6 +842,13 @@ export function App() {
         onClose={() => setIsHistoryModalOpen(false)}
         serverUrl={socketService.getServerUrl()}
       />
+      {isVoiceModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <VoiceSettings compact onClose={() => setIsVoiceModalOpen(false)} />
+          </div>
+        </div>
+      )}
 
       {/* Top Multi-View Switcher & Language Bar */}
       <div className="my-2 z-50 flex flex-wrap items-center justify-center gap-2 px-2 max-w-full">
@@ -832,6 +866,14 @@ export function App() {
         >
           <HistoryIcon className="w-3.5 h-3.5 text-cyan-400" />
           <span>TASKS</span>
+        </button>
+        <button
+          onClick={() => setIsVoiceModalOpen(true)}
+          title="Configure IGRIS Voice Personality"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white font-mono text-xs font-semibold shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+        >
+          <Sliders className="w-3.5 h-3.5 text-red-400" />
+          <span>VOICE</span>
         </button>
       </div>
 

@@ -1,18 +1,70 @@
 /**
- * JARVIS Phase 4 - Voice Interaction Types & Declarations
+ * JARVIS / IGRIS Phase 4 & Phase 9.5 - Voice Interaction & Personality Types
  * 
  * Defines typed interfaces for Web Speech API (SpeechRecognition, SpeechSynthesis),
- * microphone states, voice settings, and callbacks.
+ * microphone states, voice personality profiles, emotional modes, and TTS providers.
  */
 
 export type MicState = 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SUCCESS' | 'ERROR';
 
 export type CommandSource = 'text' | 'voice';
 
+export type VoiceGender = 'male' | 'female' | 'auto';
+export type VoiceTone = 'calm' | 'balanced' | 'commanding';
+export type VoiceStyle = 'commander' | 'standard';
+
+export type EmotionalMode =
+  | 'NORMAL'
+  | 'COMMAND'
+  | 'SUCCESS'
+  | 'WARNING'
+  | 'ERROR'
+  | 'SYSTEM_STATUS'
+  | 'GREETING';
+
+/**
+ * High-level personality configuration profile
+ */
+export interface VoicePersonalityProfile {
+  gender: 'male';
+  tone: 'calm';
+  authority: 'high';
+  friendliness: 'low_to_medium';
+  darkness: 'medium';
+  mystery: 'medium';
+  emotion: 'controlled';
+  energy: 'low_to_medium';
+  speaking_style: 'commander';
+}
+
+/**
+ * Complete Voice Settings interface with full Phase 4 backward compatibility
+ * and Phase 9.5 personality tuning parameters.
+ */
 export interface VoiceSettings {
   voiceEnabled: boolean;
   autoSpeakResponses: boolean;
   language: string;
+  // Phase 9.5 extensions (optional for backwards compatibility)
+  selectedVoice?: string;
+  rate?: number;
+  pitch?: number;
+  volume?: number;
+  tone?: VoiceTone;
+  style?: VoiceStyle;
+  emotionalMode?: EmotionalMode;
+}
+
+/**
+ * Standard TTS provider abstraction for modular engine support
+ */
+export interface TTSProvider {
+  speak(text: string, settings: VoiceSettings, onEnd?: () => void): void | Promise<void>;
+  stop(): void;
+  pause(): void;
+  resume(): void;
+  getVoices(): SpeechSynthesisVoice[];
+  isSupported(): boolean;
 }
 
 export interface SpeechRecognitionErrorEvent extends Event {

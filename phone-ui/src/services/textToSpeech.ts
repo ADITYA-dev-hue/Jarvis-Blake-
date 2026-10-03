@@ -1,14 +1,20 @@
 /**
- * JARVIS Phase 4 - Text-to-Speech Service
+ * JARVIS / IGRIS Phase 4 & Phase 9.5 - Text-to-Speech Service
  * 
- * Provides typed, clean audio feedback using native browser window.speechSynthesis.
+ * Provides typed, clean audio feedback using native browser window.speechSynthesis
+ * backed by the IGRIS Voice Personality Engine.
  * 
  * Features:
  * - Duplicate speech prevention (cancels prior speech before speaking)
  * - Voice interruption support
  * - Text sanitization (strips JSON/code artifacts for natural speech)
- * - Safe detection of browser compatibility
+ * - Deep, commanding, calm male voice prioritization
+ * - Emotional mode calibration
+ * - Full backward compatibility with Phase 4 API and tests
  */
+
+import voicePersonalityEngine from './voicePersonality';
+import { EmotionalMode } from '../types/voice';
 
 class TextToSpeechService {
   private lastSpokenText: string | null = null;
@@ -39,18 +45,24 @@ class TextToSpeechService {
   }
 
   /**
-   * Speak a human-readable text string aloud
+   * Speak a human-readable text string aloud using the IGRIS Voice Personality
    * 
    * @param text Natural language sentence to speak
    * @param lang BCP 47 language tag (default: 'en-IN')
+   * @param mode Optional emotional mode (e.g. NORMAL, COMMAND, WARNING, ERROR)
    */
-  public speak(text: string, lang: string = 'en-IN'): void {
+  public speak(text: string, lang: string = 'en-IN', mode?: EmotionalMode): void {
     if (!this.isSupported()) {
       console.warn('[TTS] SpeechSynthesis is not supported in this browser.');
       return;
     }
 
     if (!text || typeof text !== 'string') {
+      return;
+    }
+
+    const settings = voicePersonalityEngine.getSettings();
+    if (!settings.voiceEnabled) {
       return;
     }
 
@@ -73,20 +85,23 @@ class TextToSpeechService {
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(cleaned);
-      utterance.lang = lang;
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      utterance.lang = lang || settings.language || 'en-IN';
 
-      // Select an appropriate English voice if available
+      // Retrieve calibrated personality parameters (rate, pitch, volume)
+      const params = voicePersonalityEngine.getEffectiveParameters(mode);
+      utterance.rate = params.rate;
+      utterance.pitch = params.pitch;
+      utterance.volume = params.volume;
+
+      // Select prioritized male/commander voice
       const voices = window.speechSynthesis.getVoices();
       if (voices && voices.length > 0) {
-        const matchingVoice =
-          voices.find((v) => v.lang === lang) ||
-          voices.find((v) => v.lang.startsWith('en-IN')) ||
-          voices.find((v) => v.lang.startsWith('en')) ||
-          voices[0];
-        if (matchingVoice) {
-          utterance.voice = matchingVoice;
+        const preferredVoice = voicePersonalityEngine.selectBestVoice(voices, {
+          ...settings,
+          language: lang
+        });
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
         }
       }
 
@@ -106,15 +121,8 @@ class TextToSpeechService {
   /**
    * Sanitize text to sound natural and clear over speech synthesis
    */
-  private sanitizeTextForSpeech(text: string): string {
-    return text
-      .replace(/```[\s\S]*?```/g, '') // remove code fences
-      .replace(/`([^`]+)`/g, '$1') // remove inline code marks
-      .replace(/\{[\s\S]*?\}/g, '') // strip raw JSON objects
-      .replace(/https?:\/\/(?:www\.)?([^\s/]+)[^\s]*/gi, '$1') // read domain instead of full URL
-      .replace(/[#*_~[\]()]/g, ' ') // strip markdown characters
-      .replace(/\s+/g, ' ')
-      .trim();
+  public sanitizeTextForSpeech(text: string): string {
+    return voicePersonalityEngine.formatForSpeech(text);
   }
 }
 

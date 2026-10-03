@@ -185,6 +185,97 @@ function checkLanguageSwitchCommand(text) {
 }
 
 /**
+ * Check if the user is issuing a voice personality/style switch command
+ * e.g., "Speak more calmly.", "Use a deeper voice.", "Talk more like a commander.",
+ *       "Make your voice slightly friendlier.", "Use the IGRIS voice."
+ * 
+ * @param {string} text User prompt
+ * @returns {{ isVoiceSwitch: boolean, voiceSettings?: object, message?: string }}
+ */
+function checkVoiceStyleSwitchCommand(text) {
+  if (!text || typeof text !== 'string') return { isVoiceSwitch: false };
+
+  const clean = text.trim();
+  const lower = clean.toLowerCase();
+
+  // "Speak more calmly" / "Speak calmly"
+  if (
+    lower.includes('speak more calmly') ||
+    lower.includes('speak calmly') ||
+    lower.includes('talk more calmly') ||
+    lower.includes('thoda calm bolo') ||
+    lower.includes('aur calm bolo')
+  ) {
+    return {
+      isVoiceSwitch: true,
+      voiceSettings: { tone: 'calm', style: 'commander' },
+      message: "Modulating voice tone. Speaking with calm authority."
+    };
+  }
+
+  // "Use a deeper voice" / "Deeper voice"
+  if (
+    lower.includes('use a deeper voice') ||
+    lower.includes('deeper voice') ||
+    lower.includes('deep voice') ||
+    lower.includes('gehri aawaz') ||
+    lower.includes('aawaz deep karo')
+  ) {
+    return {
+      isVoiceSwitch: true,
+      voiceSettings: { pitch: 0.78, tone: 'commanding' },
+      message: "Voice pitch lowered. Resonance calibrated for deeper presence."
+    };
+  }
+
+  // "Talk more like a commander" / "Commander voice"
+  if (
+    lower.includes('talk more like a commander') ||
+    lower.includes('like a commander') ||
+    lower.includes('commander voice') ||
+    lower.includes('commander mode') ||
+    lower.includes('commander jaisa bolo')
+  ) {
+    return {
+      isVoiceSwitch: true,
+      voiceSettings: { style: 'commander', tone: 'commanding', rate: 0.88, pitch: 0.80 },
+      message: "Commander protocol engaged. Authoritative cadence active."
+    };
+  }
+
+  // "Make your voice slightly friendlier" / "Friendlier voice"
+  if (
+    lower.includes('slightly friendlier') ||
+    lower.includes('friendlier voice') ||
+    lower.includes('friendly voice') ||
+    lower.includes('thoda friendly bolo')
+  ) {
+    return {
+      isVoiceSwitch: true,
+      voiceSettings: { tone: 'balanced', pitch: 0.88, rate: 0.92 },
+      message: "Voice modulation adjusted with subtle friendliness."
+    };
+  }
+
+  // "Use the IGRIS voice" / "Default voice" / "Reset voice"
+  if (
+    lower.includes('use the igris voice') ||
+    lower.includes('igris voice') ||
+    lower.includes('reset voice') ||
+    lower.includes('default voice') ||
+    lower.includes('igris aawaz use karo')
+  ) {
+    return {
+      isVoiceSwitch: true,
+      voiceSettings: { style: 'commander', tone: 'calm', rate: 0.90, pitch: 0.85 },
+      message: "IGRIS Commander persona restored to standard calibrated parameters."
+    };
+  }
+
+  return { isVoiceSwitch: false };
+}
+
+/**
  * Format friendly assistant response across supported languages
  * 
  * @param {string} action Executed action name
@@ -583,6 +674,7 @@ function formatConfirmationPrompt(stepCount, language = 'en') {
 module.exports = {
   detectLanguage,
   checkLanguageSwitchCommand,
+  checkVoiceStyleSwitchCommand,
   formatMultilingualResponse,
   formatMultilingualError,
   formatConfirmationPrompt,

@@ -554,6 +554,33 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Phase 9.5 Voice Style Switch Directives
+      if (interpretation.isVoiceStyleSwitch) {
+        socket.emit('voice_style_changed', {
+          voiceSettings: interpretation.voiceSettings,
+          message: interpretation.message
+        });
+
+        sessionStore.addMessage(sessionId, {
+          role: 'assistant',
+          content: interpretation.message,
+          action: 'set_voice_style',
+          success: true
+        });
+
+        const voiceSwitchResponse = {
+          success: true,
+          isVoiceStyleSwitch: true,
+          voiceSettings: interpretation.voiceSettings,
+          userText: text,
+          sessionId,
+          message: interpretation.message
+        };
+        socket.emit('ai_command_result', voiceSwitchResponse);
+        if (typeof callback === 'function') callback(voiceSwitchResponse);
+        return;
+      }
+
       if (!interpretation.success) {
         const failMsg = interpretation.message || "I can't perform that action yet.";
         appendAuditLog(sessionId, interpretation.interpretedCommand?.action || 'unsupported', false);
@@ -889,6 +916,24 @@ app.post('/api/test-ai-command', async (req, res) => {
       isLanguageSwitch: true,
       targetLanguage: interpretation.targetLanguage,
       language: interpretation.targetLanguage,
+      message: interpretation.message
+    });
+  }
+
+  // Phase 9.5 Voice Style Switch Directives
+  if (interpretation.isVoiceStyleSwitch) {
+    if (sessionId && !conversationHistory) {
+      sessionStore.addMessage(sessionId, {
+        role: 'assistant',
+        content: interpretation.message,
+        action: 'set_voice_style',
+        success: true
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      isVoiceStyleSwitch: true,
+      voiceSettings: interpretation.voiceSettings,
       message: interpretation.message
     });
   }
