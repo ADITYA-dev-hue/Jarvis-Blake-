@@ -8,7 +8,8 @@ import {
   AgentStatusEvent,
   TaskProgressEvent,
   TaskConfirmationRequiredEvent,
-  LanguagePreference
+  LanguagePreference,
+  MediaStatusData
 } from '../types/command';
 import { SystemMetrics } from '../types/system';
 
@@ -28,6 +29,7 @@ class JarvisSocketService {
   private connectionListeners: Set<(state: ConnectionState) => void> = new Set();
   private agentStatusListeners: Set<(status: AgentStatusState, agentId: string) => void> = new Set();
   private systemMetricsListeners: Set<(metrics: SystemMetrics) => void> = new Set();
+  private mediaStatusListeners: Set<(media: MediaStatusData) => void> = new Set();
   private taskProgressListeners: Set<(progress: TaskProgressEvent) => void> = new Set();
   private taskConfirmationListeners: Set<(event: TaskConfirmationRequiredEvent) => void> = new Set();
   private languageChangedListeners: Set<(data: { language: string; message: string }) => void> = new Set();
@@ -107,6 +109,13 @@ class JarvisSocketService {
       }
     });
 
+    // Phase 10 Real-time Desktop Media Playback streaming
+    this.socket.on('media_status', (data: MediaStatusData) => {
+      if (data) {
+        this.mediaStatusListeners.forEach((listener) => listener(data));
+      }
+    });
+
     // Phase 8 Real-time Task Step Progress streaming
     this.socket.on('task_progress', (data: TaskProgressEvent) => {
       if (data && typeof data.step === 'number') {
@@ -170,6 +179,17 @@ class JarvisSocketService {
   public onSystemMetrics(listener: (metrics: SystemMetrics) => void): () => void {
     this.systemMetricsListeners.add(listener);
     return () => this.systemMetricsListeners.delete(listener);
+  }
+
+  public onMediaStatus(listener: (media: MediaStatusData) => void): () => void {
+    this.mediaStatusListeners.add(listener);
+    return () => this.mediaStatusListeners.delete(listener);
+  }
+
+  public requestMediaStatus(): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('request_media_status');
+    }
   }
 
   public onTaskProgress(listener: (progress: TaskProgressEvent) => void): () => void {

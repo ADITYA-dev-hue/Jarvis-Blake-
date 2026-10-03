@@ -383,6 +383,52 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
     }
   }
 
+  // Multi-step task: "Open Chrome and maximize it" / "Chrome kholo aur maximize karo"
+  if (
+    (lower.includes('open') || lower.includes('kholo') || lower.includes('launch')) &&
+    (lower.includes('maximize') || lower.includes('bada karo') || lower.includes('max'))
+  ) {
+    let targetApp = 'chrome';
+    if (lower.includes('notepad') || clean.includes('नोटपैड')) targetApp = 'notepad';
+    else if (lower.includes('calc') || clean.includes('कैलकुलेटर')) targetApp = 'calculator';
+    else if (lower.includes('paint') || clean.includes('पेंट')) targetApp = 'paint';
+    else if (lower.includes('code')) targetApp = 'code';
+    else if (lower.includes('explorer')) targetApp = 'explorer';
+
+    return {
+      action: 'task',
+      parameters: {
+        steps: [
+          { action: 'open_app', parameters: { app: targetApp } },
+          { action: 'maximize_window', parameters: { app: targetApp } }
+        ]
+      }
+    };
+  }
+
+  // Multi-step task: "Open Chrome and focus it" / "Notepad kholo aur samne lao"
+  if (
+    (lower.includes('open') || lower.includes('kholo') || lower.includes('launch')) &&
+    (lower.includes('focus') || lower.includes('samne lao') || lower.includes('front'))
+  ) {
+    let targetApp = 'chrome';
+    if (lower.includes('notepad') || clean.includes('नोटपैड')) targetApp = 'notepad';
+    else if (lower.includes('calc') || clean.includes('कैलकुलेटर')) targetApp = 'calculator';
+    else if (lower.includes('paint') || clean.includes('पेंट')) targetApp = 'paint';
+    else if (lower.includes('code')) targetApp = 'code';
+    else if (lower.includes('explorer')) targetApp = 'explorer';
+
+    return {
+      action: 'task',
+      parameters: {
+        steps: [
+          { action: 'open_app', parameters: { app: targetApp } },
+          { action: 'focus_window', parameters: { app: targetApp } }
+        ]
+      }
+    };
+  }
+
   // 10. Web Search (English, Hinglish, Hindi)
   if (
     lower.startsWith('search ') ||
@@ -442,6 +488,122 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
     return {
       action: 'wait',
       parameters: { milliseconds: ms }
+    };
+  }
+
+  // Phase 10 - Media Playback Status (English, Hinglish, Hindi)
+  if (
+    lower.includes('media status') ||
+    lower.includes("what's playing") ||
+    lower.includes('what is playing') ||
+    lower.includes('what song is playing') ||
+    lower.includes('what music is playing') ||
+    lower.includes('current song') ||
+    lower.includes('is anything playing') ||
+    lower.includes('gana baj raha hai') ||
+    lower.includes('gaana baj raha hai') ||
+    lower.includes('kaun sa gana') ||
+    lower.includes('kaun sa gaana') ||
+    lower.includes('kya play ho raha') ||
+    lower.includes('kya baj raha hai') ||
+    clean.includes('क्या बज रहा है') ||
+    clean.includes('कौन सा गाना') ||
+    clean.includes('गीत बज रहा है')
+  ) {
+    return {
+      action: 'media_status',
+      parameters: {}
+    };
+  }
+
+  // Phase 10 - List Windows (English, Hinglish, Hindi)
+  if (
+    lower.includes('what windows are open') ||
+    lower.includes('list windows') ||
+    lower.includes('list open windows') ||
+    lower.includes('show open windows') ||
+    lower.includes('active windows') ||
+    lower.includes('open windows') ||
+    lower.includes('running windows') ||
+    lower.includes('kaun si windows open') ||
+    lower.includes('open windows dikhao') ||
+    lower.includes('chal rahi windows') ||
+    lower.includes('khuli hui windows') ||
+    clean.includes('विंडो खुली हैं') ||
+    clean.includes('विंडो दिखाओ') ||
+    clean.includes('खुली हुई विंडो')
+  ) {
+    return {
+      action: 'list_windows',
+      parameters: {}
+    };
+  }
+
+  // Phase 10 - Window Focus (English, Hinglish, Hindi)
+  if (
+    (lower.includes('focus') || lower.includes('samne lao') || lower.includes('front') || clean.includes('फ़ोकस') || clean.includes('सामने लाओ')) &&
+    (lower.includes('chrome') || lower.includes('notepad') || lower.includes('calc') || lower.includes('paint') || lower.includes('code') || lower.includes('explorer') || clean.includes('क्रोम') || clean.includes('नोटपैड'))
+  ) {
+    let targetApp = 'chrome';
+    if (lower.includes('notepad') || clean.includes('नोटपैड')) targetApp = 'notepad';
+    else if (lower.includes('calc') || clean.includes('कैलकुलेटर')) targetApp = 'calculator';
+    else if (lower.includes('paint') || clean.includes('पेंट')) targetApp = 'paint';
+    else if (lower.includes('code')) targetApp = 'code';
+    else if (lower.includes('explorer')) targetApp = 'explorer';
+    return {
+      action: 'focus_window',
+      parameters: { app: targetApp }
+    };
+  }
+
+  // Phase 10 - Window Minimize (English, Hinglish, Hindi)
+  if (
+    (lower.includes('minimize') || lower.includes('chhota karo') || lower.includes('chhupao') || clean.includes('मिनिमाइज़') || clean.includes('छोटा करो')) &&
+    (lower.includes('chrome') || lower.includes('notepad') || lower.includes('calc') || lower.includes('paint') || lower.includes('code') || lower.includes('explorer') || clean.includes('क्रोम') || clean.includes('नोटपैड'))
+  ) {
+    let targetApp = 'chrome';
+    if (lower.includes('notepad') || clean.includes('नोटपैड')) targetApp = 'notepad';
+    else if (lower.includes('calc') || clean.includes('कैलकुलेटर')) targetApp = 'calculator';
+    else if (lower.includes('paint') || clean.includes('पेंट')) targetApp = 'paint';
+    else if (lower.includes('code')) targetApp = 'code';
+    else if (lower.includes('explorer')) targetApp = 'explorer';
+    return {
+      action: 'minimize_window',
+      parameters: { app: targetApp }
+    };
+  }
+
+  // Phase 10 - Window Maximize (English, Hinglish, Hindi)
+  if (
+    (lower.includes('maximize') || lower.includes('bada karo') || clean.includes('मैक्सिमाइज़') || clean.includes('बड़ा करो')) &&
+    (lower.includes('chrome') || lower.includes('notepad') || lower.includes('calc') || lower.includes('paint') || lower.includes('code') || lower.includes('explorer') || clean.includes('क्रोम') || clean.includes('नोटपैड'))
+  ) {
+    let targetApp = 'chrome';
+    if (lower.includes('notepad') || clean.includes('नोटपैड')) targetApp = 'notepad';
+    else if (lower.includes('calc') || clean.includes('कैलकुलेटर')) targetApp = 'calculator';
+    else if (lower.includes('paint') || clean.includes('पेंट')) targetApp = 'paint';
+    else if (lower.includes('code')) targetApp = 'code';
+    else if (lower.includes('explorer')) targetApp = 'explorer';
+    return {
+      action: 'maximize_window',
+      parameters: { app: targetApp }
+    };
+  }
+
+  // Phase 10 - Window Restore (English, Hinglish, Hindi)
+  if (
+    (lower.includes('restore') || lower.includes('wapas lao') || clean.includes('रीस्टोर') || clean.includes('वापस लाओ')) &&
+    (lower.includes('chrome') || lower.includes('notepad') || lower.includes('calc') || lower.includes('paint') || lower.includes('code') || lower.includes('explorer') || clean.includes('क्रोम') || clean.includes('नोटपैड'))
+  ) {
+    let targetApp = 'chrome';
+    if (lower.includes('notepad') || clean.includes('नोटपैड')) targetApp = 'notepad';
+    else if (lower.includes('calc') || clean.includes('कैलकुलेटर')) targetApp = 'calculator';
+    else if (lower.includes('paint') || clean.includes('पेंट')) targetApp = 'paint';
+    else if (lower.includes('code')) targetApp = 'code';
+    else if (lower.includes('explorer')) targetApp = 'explorer';
+    return {
+      action: 'restore_window',
+      parameters: { app: targetApp }
     };
   }
 

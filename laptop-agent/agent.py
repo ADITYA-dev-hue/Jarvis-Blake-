@@ -21,6 +21,7 @@ from pathlib import Path
 import config
 from commands import execute_safe_command, set_task_progress_callback
 from system_monitor import metrics_reporter
+import media_monitor
 
 # Setup lightweight security audit logger (1MB max, 2 backups)
 audit_log_path = Path(__file__).resolve().parent / "audit.log"
@@ -50,6 +51,9 @@ sio = socketio.Client(
     engineio_logger=False
 )
 
+# Phase 10: Desktop Media Reporter
+media_reporter = media_monitor.MediaStatusReporter(sio)
+
 # Connection state tracking
 is_connected = False
 has_initially_connected = False
@@ -64,8 +68,9 @@ def connect():
     is_connected = True
     last_connect_error = None
 
-    # Start live system metrics reporting
+    # Start live system metrics & desktop media reporting
     metrics_reporter.start(sio)
+    media_reporter.start()
 
     if not has_initially_connected:
         has_initially_connected = True
@@ -83,6 +88,7 @@ def disconnect():
     """Triggered when the server becomes unavailable."""
     global is_connected
     metrics_reporter.stop()
+    media_reporter.stop()
     if is_connected:
         is_connected = False
         print("Server unavailable", flush=True)
@@ -94,6 +100,7 @@ def connect_error(data):
     """Triggered on initial connection or reconnection failure."""
     global is_connected, last_connect_error
     metrics_reporter.stop()
+    media_reporter.stop()
     last_connect_error = data
     err_str = str(data)
 
@@ -111,6 +118,12 @@ def connect_error(data):
 def on_request_system_metrics(payload=None):
     """Handle instant metrics snapshot request from server/phone."""
     metrics_reporter.send_snapshot_now()
+
+
+@sio.on("request_media_status")
+def on_request_media_status(payload=None):
+    """Handle instant media status snapshot request from server/phone."""
+    media_reporter.send_snapshot_now()
 
 
 @sio.on("execute_command")

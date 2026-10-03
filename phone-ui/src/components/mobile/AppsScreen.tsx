@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { AppItem } from './types';
 import audioFx from '../../services/audioFx';
+import WindowsManagerCard from '../dashboard/WindowsManagerCard';
 
 interface AppsScreenProps {
   onExecuteCommand: (action: string, params: Record<string, any>, label: string) => Promise<void>;
@@ -152,6 +153,9 @@ export const AppsScreen: React.FC<AppsScreenProps> = ({ onExecuteCommand }) => {
           {runningCount} RUNNING
         </span>
       </div>
+
+      {/* Phase 10 Interactive Window Control */}
+      <WindowsManagerCard onExecuteCommand={onExecuteCommand} isOnline={true} />
 
       {/* Search Bar */}
       <div className="flex items-center gap-2 p-2.5 rounded-xl bg-black/60 border border-red-950/80 focus-within:border-red-600 transition-colors">

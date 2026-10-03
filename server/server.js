@@ -204,6 +204,17 @@ const pendingCommands = new Map();
 // State tracking for live system telemetry (Phase 7)
 let latestSystemMetrics = null;
 
+// State tracking for live desktop media playback (Phase 10)
+let latestMediaStatus = {
+  active: false,
+  playbackState: 'stopped',
+  mediaType: 'none',
+  title: '',
+  artist: '',
+  album: '',
+  source: ''
+};
+
 /**
  * Socket.IO Authentication Middleware
  * 
@@ -355,6 +366,17 @@ io.on('connection', (socket) => {
       }
     });
 
+    // Phase 10: Live media playback status streaming from laptop agent
+    socket.on('media_status', (media) => {
+      if (!media || typeof media !== 'object') return;
+      latestMediaStatus = {
+        ...media,
+        receivedAt: new Date().toISOString()
+      };
+      // Forward media telemetry strictly to authenticated phone clients
+      io.to('phones').emit('media_status', latestMediaStatus);
+    });
+
     // Laptop -> Server result event
     socket.on('command_result', (result) => {
       if (!result || typeof result !== 'object') return;
@@ -386,14 +408,24 @@ io.on('connection', (socket) => {
         connectedAgentsById.delete(agentId);
       }
       latestSystemMetrics = null;
+      latestMediaStatus = {
+        active: false,
+        playbackState: 'stopped',
+        mediaType: 'none',
+        title: '',
+        artist: '',
+        album: '',
+        source: ''
+      };
       console.log('Laptop agent disconnected');
       console.log(`Agent ID: ${agentId}`);
 
-      // Broadcast laptop offline status to connected phone clients
+      // Broadcast laptop offline status and cleared media status to connected phone clients
       io.to('phones').emit('agent_status', {
         agentId,
         status: 'offline'
       });
+      io.to('phones').emit('media_status', latestMediaStatus);
     });
   } else if (role === 'phone') {
     socket.join('phones');
@@ -417,6 +449,14 @@ io.on('connection', (socket) => {
       if (laptopAgent && laptopAgent.socket && laptopAgent.socket.connected) {
         laptopAgent.socket.emit('request_system_metrics');
       }
+
+      // Phase 10: Send latest media status snapshot immediately if available
+      if (latestMediaStatus) {
+        socket.emit('media_status', latestMediaStatus);
+      }
+      if (laptopAgent && laptopAgent.socket && laptopAgent.socket.connected) {
+        laptopAgent.socket.emit('request_media_status');
+      }
     }
 
     // Phase 7: Handle phone client manual request for metrics refresh
@@ -424,6 +464,16 @@ io.on('connection', (socket) => {
       const laptopAgent = connectedAgentsById.get('LAPTOP-01');
       if (laptopAgent && laptopAgent.socket && laptopAgent.socket.connected) {
         laptopAgent.socket.emit('request_system_metrics');
+      }
+    });
+
+    // Phase 10: Handle phone client manual request for media status refresh
+    socket.on('request_media_status', () => {
+      const laptopAgent = connectedAgentsById.get('LAPTOP-01');
+      if (laptopAgent && laptopAgent.socket && laptopAgent.socket.connected) {
+        laptopAgent.socket.emit('request_media_status');
+      } else if (latestMediaStatus) {
+        socket.emit('media_status', latestMediaStatus);
       }
     });
 
@@ -781,6 +831,16 @@ app.get('/api/agent/status', (req, res) => {
 });
 
 /**
+ * Media playback status endpoint (Phase 10)
+ */
+app.get('/api/media/status', (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: latestMediaStatus
+  });
+});
+
+/**
  * Development test endpoint for natural language AI interpretation
  * POST /api/test-ai-command
  * 
@@ -852,10 +912,14 @@ app.post('/api/test-ai-command', async (req, res) => {
     });
   }
 
+  const previewData = interpretation.validatedCommand.action === 'media_status'
+    ? latestMediaStatus
+    : latestSystemMetrics;
+
   const previewMessage = formatFriendlyResponseMessage(
     interpretation.validatedCommand.action,
     interpretation.validatedCommand.parameters,
-    { success: true, data: latestSystemMetrics },
+    { success: true, data: previewData },
     text,
     interpretation.language
   );

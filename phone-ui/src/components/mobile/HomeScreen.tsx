@@ -22,6 +22,7 @@ import {
 import { SystemStatusData, HistoryItem } from '../../types/command';
 import audioFx from '../../services/audioFx';
 import useDeviceStatus from '../../services/useDeviceStatus';
+import NowPlayingCard from '../dashboard/NowPlayingCard';
 
 interface HomeScreenProps {
   systemData: SystemStatusData | null;
@@ -406,6 +407,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Phase 10 Real-time Desktop Media Monitor */}
+      <NowPlayingCard isOnline={deviceStatus.isOnline} />
 
       {/* 5. Recent Commands */}
       <div className="flex flex-col gap-2.5">

@@ -46,6 +46,8 @@ import speechRecognition from '../../services/speechRecognition';
 import useDeviceStatus from '../../services/useDeviceStatus';
 import MultiViewSwitcher, { ViewMode } from '../MultiViewSwitcher';
 import SystemDashboard from '../dashboard/SystemDashboard';
+import WindowsManagerCard from '../dashboard/WindowsManagerCard';
+import NowPlayingCard from '../dashboard/NowPlayingCard';
 
 interface DesktopDashboardProps {
   connectionState: ConnectionState;
@@ -1050,6 +1052,12 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
                 >
                   <RefreshCw className="w-3 h-3" /> Refresh
                 </button>
+              </div>
+
+              {/* Phase 10 Interactive Window Control & Desktop Media Monitor */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <WindowsManagerCard onExecuteCommand={onExecuteCommand} isOnline={deviceStatus.isOnline} />
+                <NowPlayingCard isOnline={deviceStatus.isOnline} />
               </div>
 
               {/* Quick Launch Cards */}

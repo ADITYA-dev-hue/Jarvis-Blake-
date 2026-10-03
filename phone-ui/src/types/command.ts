@@ -12,7 +12,34 @@ export type CommandAction =
   | 'wait'
   | 'search_web'
   | 'task'
+  | 'list_windows'
+  | 'focus_window'
+  | 'minimize_window'
+  | 'maximize_window'
+  | 'restore_window'
+  | 'media_status'
   | 'unsupported';
+
+export interface WindowItem {
+  app: string;
+  title: string;
+}
+
+export interface ListWindowsData {
+  count: number;
+  windows: WindowItem[];
+}
+
+export interface MediaStatusData {
+  active: boolean;
+  playbackState: 'playing' | 'paused' | 'stopped' | string;
+  mediaType: 'music' | 'video' | 'audio' | 'none' | string;
+  title: string;
+  artist: string;
+  album: string;
+  source: string;
+  receivedAt?: string;
+}
 
 export interface TaskProgressEvent {
   commandId: string;

@@ -10,7 +10,7 @@
 // Application whitelist matching the laptop agent
 const ALLOWED_APPS = new Set(['notepad', 'calculator', 'paint', 'explorer', 'code', 'chrome']);
 
-// Allowed command actions (13 safe actions)
+// Allowed command actions (19 safe actions)
 const ALLOWED_ACTIONS = new Set([
   'system_status',
   'open_url',
@@ -24,7 +24,13 @@ const ALLOWED_ACTIONS = new Set([
   'type_text',
   'wait',
   'search_web',
-  'task'
+  'task',
+  'list_windows',
+  'focus_window',
+  'minimize_window',
+  'maximize_window',
+  'restore_window',
+  'media_status'
 ]);
 
 // Maximum limits
@@ -565,6 +571,80 @@ function validateCommand(parsed) {
         parameters: {
           steps: validatedSteps
         }
+      }
+    };
+  }
+
+  // 14. Validation for list_windows
+  if (action === 'list_windows') {
+    if (parameters && typeof parameters === 'object') {
+      const keys = Object.keys(parameters);
+      if (keys.length > 0) {
+        return { valid: false, error: "Action 'list_windows' does not accept any parameters." };
+      }
+    }
+    return {
+      valid: true,
+      command: {
+        action: 'list_windows',
+        parameters: {}
+      }
+    };
+  }
+
+  // 15. Validation for window management (focus_window, minimize_window, maximize_window, restore_window)
+  if (action === 'focus_window' || action === 'minimize_window' || action === 'maximize_window' || action === 'restore_window') {
+    const rawApp = parameters.app || parameters.app_name;
+    if (rawApp === undefined || rawApp === null) {
+      return { valid: false, error: "Missing required 'app' parameter." };
+    }
+    if (typeof rawApp !== 'string') {
+      return { valid: false, error: "Parameter 'app' must be a string." };
+    }
+
+    const appKey = rawApp.trim().toLowerCase();
+    if (appKey.length === 0) {
+      return { valid: false, error: "Parameter 'app' cannot be empty." };
+    }
+
+    // Check for injection / forbidden parameters
+    for (const k of Object.keys(parameters)) {
+      if (['hwnd', 'handle', 'window_handle', 'pid', 'process_id', 'coordinates', 'x', 'y', 'mouse', 'keys'].includes(k.toLowerCase())) {
+        return { valid: false, error: `Security violation: Parameter '${k}' is strictly forbidden.` };
+      }
+    }
+
+    if (!ALLOWED_APPS.has(appKey)) {
+      return {
+        valid: false,
+        error: `Application '${rawApp}' is not whitelisted. Allowed: ${Array.from(ALLOWED_APPS).join(', ')}`
+      };
+    }
+
+    return {
+      valid: true,
+      command: {
+        action,
+        parameters: {
+          app: appKey
+        }
+      }
+    };
+  }
+
+  // 16. Validation for media_status
+  if (action === 'media_status') {
+    if (parameters && typeof parameters === 'object') {
+      const keys = Object.keys(parameters);
+      if (keys.length > 0) {
+        return { valid: false, error: "Action 'media_status' does not accept any parameters." };
+      }
+    }
+    return {
+      valid: true,
+      command: {
+        action: 'media_status',
+        parameters: {}
       }
     };
   }

@@ -30,7 +30,9 @@ const HINGLISH_KEYWORDS = new Set([
   'aur', 'phir', 'baad', 'pehle', 'ab', 'abhi',
   'shuru', 'chalao', 'chalana', 'ruk', 'ruko',
   'baat', 'bolo', 'boliye', 'bolna',
-  'chahiye', 'suno', 'sunao', 'hoga', 'hogi', 'honge'
+  'chahiye', 'suno', 'sunao', 'hoga', 'hogi', 'honge',
+  'gana', 'gaana', 'geet', 'baja', 'bajao', 'baj', 'bajti',
+  'window', 'khidki', 'bada', 'chhota', 'lao', 'saamne', 'hatao'
 ]);
 
 // Devanagari Unicode range: \u0900 to \u097F
@@ -393,6 +395,70 @@ function formatMultilingualResponse(action, parameters = {}, result = {}, userTe
     return `Task completed successfully (${stepsCount} steps executed).`;
   }
 
+  // Phase 10 - Window Management
+  if (action === 'list_windows') {
+    const windows = result?.data?.windows || [];
+    const count = typeof result?.data?.count === 'number' ? result.data.count : windows.length;
+    if (count === 0) {
+      if (lang === 'hinglish') return 'Abhi koi supported application open nahi hai.';
+      if (lang === 'hi') return 'वर्तमान में कोई समर्थित एप्लिकेशन खुला नहीं है।';
+      return 'No supported applications are currently open.';
+    }
+    const titles = windows.slice(0, 5).map(w => w.title || w.app).join(', ');
+    const more = count > 5 ? ` aur ${count - 5} aur` : '';
+    const moreEn = count > 5 ? ` and ${count - 5} more` : '';
+    const moreHi = count > 5 ? ` और ${count - 5} अन्य` : '';
+    if (lang === 'hinglish') return `Abhi ${count} open window${count === 1 ? '' : 's'} chal rahe hain: ${titles}${more}.`;
+    if (lang === 'hi') return `वर्तमान में ${count} खुली विंडो हैं: ${titles}${moreHi}।`;
+    return `Found ${count} open window${count === 1 ? '' : 's'}: ${titles}${moreEn}.`;
+  }
+
+  if (action === 'focus_window') {
+    const app = parameters?.app || 'application';
+    if (lang === 'hinglish') return `${app} window ko focus mein la diya gaya hai.`;
+    if (lang === 'hi') return `${app} विंडो को फ़ोकस में लाया गया।`;
+    return `Brought ${app} window to focus.`;
+  }
+
+  if (action === 'minimize_window') {
+    const app = parameters?.app || 'application';
+    if (lang === 'hinglish') return `${app} window ko minimize kar diya gaya hai.`;
+    if (lang === 'hi') return `${app} विंडो को मिनिमाइज़ किया गया।`;
+    return `Minimized ${app} window.`;
+  }
+
+  if (action === 'maximize_window') {
+    const app = parameters?.app || 'application';
+    if (lang === 'hinglish') return `${app} window ko maximize kar diya gaya hai.`;
+    if (lang === 'hi') return `${app} विंडो को मैक्सिमाइज़ किया गया।`;
+    return `Maximized ${app} window.`;
+  }
+
+  if (action === 'restore_window') {
+    const app = parameters?.app || 'application';
+    if (lang === 'hinglish') return `${app} window ko restore kar diya gaya hai.`;
+    if (lang === 'hi') return `${app} विंडो को रीस्टोर किया गया।`;
+    return `Restored ${app} window.`;
+  }
+
+  // Phase 10 - Media Playback Status
+  if (action === 'media_status') {
+    const m = result?.data || {};
+    const isActive = m.active === true && m.playbackState !== 'stopped';
+    if (!isActive) {
+      if (lang === 'hinglish') return 'Abhi laptop par koi media play nahi ho raha hai.';
+      if (lang === 'hi') return 'लैपटॉप पर वर्तमान में कोई मीडिया नहीं चल रहा है।';
+      return 'No media is currently playing.';
+    }
+    const title = m.title || 'media';
+    const source = m.source || 'Desktop';
+    const artist = m.artist ? ` by ${m.artist}` : '';
+    const artistHi = m.artist ? ` (${m.artist})` : '';
+    if (lang === 'hinglish') return `${source} par abhi "${title}" play ho raha hai${artistHi}.`;
+    if (lang === 'hi') return `${source} पर वर्तमान में "${title}" चल रहा है${artistHi}।`;
+    return `Currently playing "${title}" on ${source}${artist}.`;
+  }
+
   if (lang === 'hinglish') return 'Command successfully execute ho gaya.';
   if (lang === 'hi') return 'कमांड सफलतापूर्वक निष्पादित किया गया।';
   return 'Command executed successfully.';
@@ -437,6 +503,25 @@ function formatMultilingualError(err, language = 'en') {
     if (lang === 'hinglish') return `Task ruk gaya: ${str}.`;
     if (lang === 'hi') return `कार्य रुक गया: ${str}।`;
     return str;
+  }
+
+  // Phase 10 - Window errors
+  if (str.includes('not currently open') || str.includes('not open') || str.includes('No open window')) {
+    if (lang === 'hinglish') return 'Yeh application window abhi open nahi hai.';
+    if (lang === 'hi') return 'यह एप्लिकेशन विंडो वर्तमान में खुली नहीं है।';
+    return 'The requested application window is not currently open.';
+  }
+
+  if (str.includes('Multiple matching windows') || str.includes('multiple windows')) {
+    if (lang === 'hinglish') return 'Ek se zyada matching windows mile. Kripya specify karein.';
+    if (lang === 'hi') return 'एक से अधिक विंडो मिलीं। कृपया स्पष्ट करें।';
+    return 'Multiple matching windows found. Please specify which one to manage.';
+  }
+
+  if (str.includes('supported for approved') || str.includes('Unsupported application')) {
+    if (lang === 'hinglish') return 'Window management sirf approved applications ke liye supported hai.';
+    if (lang === 'hi') return 'विंडो प्रबंधन केवल स्वीकृत एप्लिकेशन के लिए समर्थित है।';
+    return 'Window control is only supported for approved applications.';
   }
 
   // Ambiguity and conversational clarifications

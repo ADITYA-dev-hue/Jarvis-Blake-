@@ -711,6 +711,70 @@ def handle_search_web(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# ==============================================================================
+# PHASE 10 SAFE WINDOW & MEDIA ACTIONS
+# ==============================================================================
+
+def handle_list_windows(params: Dict[str, Any]) -> Dict[str, Any]:
+    """List open supported windows (bounded to max 50, safe fields only)."""
+    import window_manager
+    return window_manager.list_windows()
+
+
+def handle_focus_window(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Safely bring a supported application window to the foreground."""
+    import window_manager
+    raw_app = params.get("app") or params.get("app_name")
+    if not raw_app or not isinstance(raw_app, str):
+        raise ValueError("Missing or invalid 'app' parameter. Expected a non-empty string.")
+    res = window_manager.focus_window(raw_app.strip())
+    if not res.get("success"):
+        raise RuntimeError(res.get("error", "Failed to focus window."))
+    return res
+
+
+def handle_minimize_window(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Safely minimize a supported application window."""
+    import window_manager
+    raw_app = params.get("app") or params.get("app_name")
+    if not raw_app or not isinstance(raw_app, str):
+        raise ValueError("Missing or invalid 'app' parameter. Expected a non-empty string.")
+    res = window_manager.minimize_window(raw_app.strip())
+    if not res.get("success"):
+        raise RuntimeError(res.get("error", "Failed to minimize window."))
+    return res
+
+
+def handle_maximize_window(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Safely maximize a supported application window."""
+    import window_manager
+    raw_app = params.get("app") or params.get("app_name")
+    if not raw_app or not isinstance(raw_app, str):
+        raise ValueError("Missing or invalid 'app' parameter. Expected a non-empty string.")
+    res = window_manager.maximize_window(raw_app.strip())
+    if not res.get("success"):
+        raise RuntimeError(res.get("error", "Failed to maximize window."))
+    return res
+
+
+def handle_restore_window(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Safely restore a supported application window."""
+    import window_manager
+    raw_app = params.get("app") or params.get("app_name")
+    if not raw_app or not isinstance(raw_app, str):
+        raise ValueError("Missing or invalid 'app' parameter. Expected a non-empty string.")
+    res = window_manager.restore_window(raw_app.strip())
+    if not res.get("success"):
+        raise RuntimeError(res.get("error", "Failed to restore window."))
+    return res
+
+
+def handle_media_status(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Retrieve safe desktop media playback metadata."""
+    import media_monitor
+    return media_monitor.get_media_status()
+
+
 def handle_task(params: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a sequence of approved safe commands sequentially.
     
@@ -831,8 +895,22 @@ class CommandSpec:
         "path": ["path", "folder_name", "file_name"]
     }
 
+    FORBIDDEN_PARAMS = {
+        "hwnd", "pid", "process_id", "handle", "coordinates", "coords", "x", "y", "width", "height", "rect"
+    }
+
     def validate_params(self, params: Dict[str, Any]) -> None:
-        """Verify presence of required parameters."""
+        """Verify presence of required parameters and reject forbidden parameters."""
+        if not isinstance(params, dict):
+            raise ValueError(f"Parameters for command '{self.action}' must be a dictionary.")
+
+        for k in params.keys():
+            if str(k).lower() in self.FORBIDDEN_PARAMS:
+                raise ValueError(f"Security violation: Parameter '{k}' is strictly forbidden.")
+
+        if self.action in ("list_windows", "media_status") and params:
+            raise ValueError(f"Command '{self.action}' does not accept any parameters.")
+
         for param in self.required_params:
             aliases = self.PARAM_ALIASES.get(param, [param])
             if not any(a in params and params[a] is not None for a in aliases):
@@ -917,6 +995,42 @@ COMMAND_REGISTRY: Dict[str, CommandSpec] = {
         description="Execute a safe multi-step sequential task.",
         executor=handle_task,
         required_params=["steps"]
+    ),
+    "list_windows": CommandSpec(
+        action="list_windows",
+        description="List supported open windows safely.",
+        executor=handle_list_windows,
+        required_params=[]
+    ),
+    "focus_window": CommandSpec(
+        action="focus_window",
+        description="Focus a supported application window.",
+        executor=handle_focus_window,
+        required_params=["app"]
+    ),
+    "minimize_window": CommandSpec(
+        action="minimize_window",
+        description="Minimize a supported application window.",
+        executor=handle_minimize_window,
+        required_params=["app"]
+    ),
+    "maximize_window": CommandSpec(
+        action="maximize_window",
+        description="Maximize a supported application window.",
+        executor=handle_maximize_window,
+        required_params=["app"]
+    ),
+    "restore_window": CommandSpec(
+        action="restore_window",
+        description="Restore a supported application window.",
+        executor=handle_restore_window,
+        required_params=["app"]
+    ),
+    "media_status": CommandSpec(
+        action="media_status",
+        description="Retrieve desktop media playback metadata.",
+        executor=handle_media_status,
+        required_params=[]
     )
 }
 
@@ -977,3 +1091,8 @@ def execute_registered_command(command: str, params: Dict[str, Any]) -> Dict[str
             "data": None,
             "error": err_str
         }
+
+
+# Backwards compatibility alias
+execute_safe_command = execute_registered_command
+
