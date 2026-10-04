@@ -86,8 +86,8 @@ def main():
     kill_process(server_proc)
     time.sleep(2)
 
-    # --- PART B: Phases 6, 7, 8, 9, 9.5, 10, 11, 12 & 13 (Self-managing lifecycles) ---
-    for phase in [6, 7, 8, 9, "9.5", 10, 11, 12, 13]:
+    # --- PART B: Phases 6, 7, 8, 9, 9.5, 10, 11, 12, 13 & 13.5 (Self-managing lifecycles) ---
+    for phase in [6, 7, 8, 9, "9.5", 10, 11, 12, 13, "13.5"]:
         script = f"test-phase{phase}.py"
         print(f"--- Running {script} ---")
         res = subprocess.run([PYTHON_EXE, str(BASE_DIR / script)], cwd=str(BASE_DIR))

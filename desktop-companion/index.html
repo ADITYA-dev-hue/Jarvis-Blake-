@@ -21,114 +21,48 @@
         <div class="bubble-content" id="bubbleContent">Standing by, Commander.</div>
       </div>
 
-      <!-- 2.5D CHARACTER STAGE -->
-      <div class="character-stage" id="characterStage">
+      <!-- 2.5D REAL ASSET CHARACTER STAGE (ZERO POLYGON PLACEHOLDERS) -->
+      <div class="character-stage floating" id="characterStage">
         <canvas id="particlesCanvas"></canvas>
 
-        <!-- LAYER 1: GROUND HOLOGRAM CIRCLE -->
+        <!-- LAYER 1: GROUND AURA EFFECT -->
         <div class="rig-layer layer-aura" id="layerAura">
-          <div class="hologram-circle">
-            <div class="hologram-inner"></div>
-          </div>
+          <img src="assets/igris/base/effects.png" class="asset-img" alt="Ground Aura" id="imgAura">
         </div>
 
         <!-- LAYER 2: SHADOW CAPE (BACK) -->
         <div class="rig-layer layer-cape" id="layerCape">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <defs>
-              <linearGradient id="capeGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#141822"/>
-                <stop offset="70%" stop-color="#0c0e14"/>
-                <stop offset="100%" stop-color="#ff1a3c" stop-opacity="0.8"/>
-              </linearGradient>
-            </defs>
-            <path d="M 70 80 Q 40 140 25 240 Q 50 220 70 250 Q 85 210 100 240 Q 115 210 130 250 Q 150 220 175 240 Q 160 140 130 80 Z" 
-                  fill="url(#capeGrad)" stroke="#ff1a3c" stroke-width="1.5" stroke-dasharray="6 3"/>
-          </svg>
+          <img src="assets/igris/base/cape.png" class="asset-img" alt="Shadow Cape" id="imgCape">
         </div>
 
-        <!-- LAYER 3: LEGS & GREAVES -->
-        <div class="rig-layer layer-legs" id="layerLegs">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <path d="M 82 175 L 75 235 L 70 270 L 88 270 L 92 235 L 94 175 Z" fill="#1b202c" stroke="#2c3345" stroke-width="2"/>
-            <line x1="84" y1="185" x2="79" y2="250" stroke="#ff1a3c" stroke-width="1.8"/>
-            <path d="M 106 175 L 108 235 L 112 270 L 130 270 L 125 235 L 118 175 Z" fill="#1b202c" stroke="#2c3345" stroke-width="2"/>
-            <line x1="116" y1="185" x2="121" y2="250" stroke="#ff1a3c" stroke-width="1.8"/>
-          </svg>
+        <!-- LAYER 3: MAIN 2.5D STATE-SYNCHRONIZED CHARACTER ARTWORK -->
+        <div class="rig-layer layer-character" id="layerCharacter">
+          <img src="assets/igris/states/idle/character.png" class="asset-img" alt="IGRIS Character" id="imgCharacter">
         </div>
 
-        <!-- LAYER 4: TORSO & CHESTPLATE -->
-        <div class="rig-layer layer-torso" id="layerTorso">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <defs>
-              <linearGradient id="armorMetal" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#323b4e"/>
-                <stop offset="50%" stop-color="#1e2432"/>
-                <stop offset="100%" stop-color="#11141c"/>
-              </linearGradient>
-            </defs>
-            <polygon points="75,85 125,85 135,130 115,175 85,175 65,130" fill="url(#armorMetal)" stroke="#3e4960" stroke-width="2"/>
-            <path d="M 100 95 L 100 155 M 82 110 L 100 130 L 118 110 M 88 150 L 100 160 L 112 150" 
-                  stroke="#ff1a3c" stroke-width="2.2" fill="none"/>
-            <polygon points="100,122 108,130 100,138 92,130" fill="#ffffff" id="coreGem"/>
-          </svg>
+        <!-- LAYER 4: DETAILED ARMORED BODY (LAYERED OVERLAY) -->
+        <div class="rig-layer layer-body" id="layerBody">
+          <img src="assets/igris/base/body.png" class="asset-img" alt="Armored Body" id="imgBody">
         </div>
 
-        <!-- LAYER 5: SHOULDERS & ARMS -->
-        <div class="rig-layer layer-shoulders" id="layerShoulders">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <polygon points="45,80 75,75 75,115 45,125 35,95" fill="#252c3c" stroke="#485570" stroke-width="2"/>
-            <line x1="48" y1="92" x2="72" y2="88" stroke="#ff1a3c" stroke-width="2"/>
-            <polygon points="155,80 125,75 125,115 155,125 165,95" fill="#252c3c" stroke="#485570" stroke-width="2"/>
-            <line x1="152" y1="92" x2="128" y2="88" stroke="#ff1a3c" stroke-width="2"/>
-            <path d="M 52 118 L 48 165 L 58 172 L 65 122 Z" fill="#1b202c" stroke="#323b4e" stroke-width="1.5"/>
-            <path d="M 148 118 L 152 165 L 142 172 L 135 122 Z" fill="#1b202c" stroke="#323b4e" stroke-width="1.5"/>
-          </svg>
+        <!-- LAYER 5: FUTURISTIC DARK ENERGY SWORD -->
+        <div class="rig-layer layer-sword" id="layerSword">
+          <img src="assets/igris/base/sword.png" class="asset-img" alt="Energy Sword" id="imgSword">
         </div>
 
-        <!-- LAYER 6: DARK ENERGY SWORD -->
-        <div class="rig-layer layer-weapon" id="layerWeapon">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <rect x="148" y="166" width="6" height="25" fill="#3a4457" transform="rotate(-25 150 175)"/>
-            <rect x="135" y="188" width="32" height="6" rx="2" fill="#222733" stroke="#ff1a3c" stroke-width="1.5" transform="rotate(-25 150 175)"/>
-            <path d="M 150 195 L 175 285 L 182 288 L 185 280 L 160 195 Z" 
-                  fill="#0d1017" stroke="#ff1a3c" stroke-width="2.5" transform="rotate(-25 150 175)"/>
-            <line x1="156" y1="202" x2="178" y2="280" stroke="#ffffff" stroke-width="1.5" transform="rotate(-25 150 175)"/>
-          </svg>
-        </div>
-
-        <!-- LAYER 7: HELMET & VISOR -->
+        <!-- LAYER 6: ARMORED HELMET / HEAD -->
         <div class="rig-layer layer-head" id="layerHead">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <defs>
-              <linearGradient id="helmGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#3d475c"/>
-                <stop offset="100%" stop-color="#141822"/>
-              </linearGradient>
-            </defs>
-            <polygon points="88,38 112,38 122,60 108,82 100,88 92,82 78,60" fill="url(#helmGrad)" stroke="#4d5a73" stroke-width="2"/>
-            <polygon points="84,36 78,16 92,30" fill="#262c3b" stroke="#3d475c"/>
-            <polygon points="116,36 122,16 108,30" fill="#262c3b" stroke="#3d475c"/>
-          </svg>
+          <img src="assets/igris/base/head.png" class="asset-img" alt="Armored Helmet" id="imgHead">
         </div>
 
-        <!-- LAYER 8: GLOWING CRIMSON EYES -->
+        <!-- LAYER 7: GLOWING CRIMSON EYES & VISOR (INDEPENDENT INTENSITY CONTROL) -->
         <div class="rig-layer layer-eyes" id="layerEyes">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <polygon points="90,58 98,62 93,64 87,60" fill="#ff2a50" id="leftEye"/>
-            <polygon points="110,58 102,62 107,64 113,60" fill="#ff2a50" id="rightEye"/>
-            <circle cx="94" cy="61" r="1.5" fill="#fff"/>
-            <circle cx="106" cy="61" r="1.5" fill="#fff"/>
-          </svg>
+          <img src="assets/igris/base/eyes.png" class="asset-img" alt="Crimson Eyes" id="imgEyes">
         </div>
 
-        <!-- LAYER 9: PLASMA PLUME (HAIR / CREST) -->
-        <div class="rig-layer layer-plume" id="layerPlume">
-          <svg class="char-svg" viewBox="0 0 200 300">
-            <path d="M 100 30 Q 120 10 150 18 Q 170 30 190 70 Q 165 55 140 50 Q 115 45 100 34 Z" 
-                  fill="#ff1a3c" opacity="0.9" id="plumePath"/>
-            <path d="M 102 32 Q 125 15 152 24 Q 168 38 180 65 Q 160 52 138 46 Z" fill="#ffffff" opacity="0.6"/>
-          </svg>
+        <!-- LAYER 8: DYNAMIC ENERGY FLUX -->
+        <div class="rig-layer layer-energy" id="layerEnergy">
+          <img src="assets/igris/particles/energy.png" class="asset-img" alt="Energy Flux" id="imgEnergy">
         </div>
 
       </div>

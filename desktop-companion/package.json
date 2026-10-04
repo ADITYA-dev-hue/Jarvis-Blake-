@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "validate-assets": "python validate_assets.py",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
@@ -20,6 +21,31 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "electron": "^33.2.1"
+    "electron": "^33.2.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.aditya.igris.companion",
+    "productName": "IGRIS Companion",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "dir",
+      "icon": "assets/igris/icon.png"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "voice.js",
+      "socket-client.js",
+      "settings-store.js",
+      "index.html",
+      "styles.css",
+      "package.json",
+      "assets/**/*",
+      "node_modules/**/*"
+    ]
   }
 }

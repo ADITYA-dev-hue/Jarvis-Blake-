@@ -3,8 +3,8 @@
   --crimson-glow: rgba(255, 26, 60, 0.45);
   --crimson-bg: rgba(255, 26, 60, 0.15);
   --steel: #2e3646;
-  --dark-panel: rgba(14, 17, 26, 0.92);
-  --border-panel: rgba(255, 26, 60, 0.3);
+  --dark-panel: rgba(14, 17, 26, 0.94);
+  --border-panel: rgba(255, 26, 60, 0.35);
   --text-primary: #f0f3fa;
   --text-secondary: #9aa2b5;
 }
@@ -36,7 +36,7 @@ body {
   padding-bottom: 12px;
 }
 
-/* DRAG CONTAINER */
+/* DRAGGABLE WRAPPER */
 .drag-container {
   -webkit-app-region: drag;
   position: relative;
@@ -57,13 +57,14 @@ body {
   border: 1px solid var(--border-panel);
   border-radius: 10px;
   padding: 8px 12px;
-  max-width: 200px;
-  margin-bottom: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px var(--crimson-bg);
+  max-width: 210px;
+  margin-bottom: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px var(--crimson-bg);
   opacity: 0;
   transform: translateY(6px) scale(0.95);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
+  z-index: 100;
 }
 
 .speech-bubble.visible {
@@ -104,42 +105,43 @@ body {
   word-break: break-word;
 }
 
-/* CHARACTER STAGE */
+/* 2.5D REAL CHARACTER STAGE */
 .character-stage {
   position: relative;
-  width: 180px;
-  height: 270px;
+  width: 200px;
+  height: 300px;
   transform-style: preserve-3d;
-  perspective: 700px;
+  perspective: 750px;
+  transition: width 0.3s ease, height 0.3s ease;
 }
 
 /* SIZE PROFILES */
 .companion-root.size-small .character-stage {
-  width: 120px;
-  height: 180px;
+  width: 140px;
+  height: 210px;
 }
 
 .companion-root.size-medium .character-stage {
-  width: 180px;
-  height: 270px;
+  width: 200px;
+  height: 300px;
 }
 
 .companion-root.size-large .character-stage {
-  width: 240px;
-  height: 360px;
+  width: 270px;
+  height: 405px;
 }
 
 /* LEVITATION ANIMATION */
-@keyframes levitateMotion {
+@keyframes levitateFloat {
   0%, 100% { transform: translateY(0px) rotateZ(0deg); }
-  50% { transform: translateY(-10px) rotateZ(0.4deg); }
+  50% { transform: translateY(-12px) rotateZ(0.4deg); }
 }
 
 .character-stage.floating {
-  animation: levitateMotion 4.5s ease-in-out infinite;
+  animation: levitateFloat 4.5s ease-in-out infinite;
 }
 
-/* RIG LAYERS */
+/* 2.5D RIG LAYERS */
 .rig-layer {
   position: absolute;
   inset: 0;
@@ -147,125 +149,220 @@ body {
   justify-content: center;
   align-items: center;
   pointer-events: none;
-  transition: transform 0.1s ease-out, opacity 0.25s ease;
+  transition: transform 0.12s ease-out, opacity 0.25s ease, filter 0.25s ease;
 }
 
-.char-svg {
+.asset-img {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.7));
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.75));
+  image-rendering: -webkit-optimize-contrast;
 }
 
-/* LAYER Z-INDEX */
-.layer-aura { z-index: 1; }
-.layer-cape { z-index: 5; }
-.layer-legs { z-index: 10; }
-.layer-torso { z-index: 15; }
-.layer-shoulders { z-index: 20; }
-.layer-weapon { z-index: 22; }
-.layer-head { z-index: 25; }
-.layer-eyes { z-index: 28; }
-.layer-plume { z-index: 30; }
+/* LAYER Z-INDEX & PERSPECTIVE OFFSETS */
+.layer-aura {
+  z-index: 1;
+  align-items: flex-end;
+  padding-bottom: 5px;
+}
 
-/* HOLOGRAM GROUND CIRCLE */
-.hologram-circle {
+.layer-aura img {
+  width: 130px;
+  height: 90px;
+  transform: rotateX(70deg);
+  animation: spinAura 12s linear infinite;
+  filter: drop-shadow(0 0 16px rgba(255, 26, 60, 0.55));
+}
+
+@keyframes spinAura {
+  0% { transform: rotateX(70deg) rotateZ(0deg); }
+  100% { transform: rotateX(70deg) rotateZ(360deg); }
+}
+
+.layer-cape {
+  z-index: 5;
+  transform: translateZ(-8px);
+  opacity: 0.95;
+}
+
+.layer-character {
+  z-index: 10;
+  transform: translateZ(5px);
+}
+
+.layer-body {
+  z-index: 15;
+  transform: translateZ(8px);
+  display: none; /* Active in multi-layer mode */
+}
+
+.layer-sword {
+  z-index: 20;
+  transform: translateZ(18px) rotate(-5deg);
+  display: none; /* State character art has integrated sword, standalone sword active in custom rigs */
+}
+
+.layer-head {
+  z-index: 25;
+  transform: translateZ(15px);
+  display: none; /* State character art has integrated helm */
+}
+
+/* EYES LAYER - INDEPENDENT GLOW OVERLAY */
+.layer-eyes {
+  z-index: 30;
+  transform: translateZ(25px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.layer-eyes img {
+  width: 32px;
+  height: 14px;
   position: absolute;
-  bottom: -5px;
+  top: 15%;
   left: 50%;
-  transform: translateX(-50%) rotateX(75deg);
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 26, 60, 0.5);
-  box-shadow: 0 0 16px rgba(255, 26, 60, 0.4), inset 0 0 16px rgba(255, 26, 60, 0.3);
-  animation: spinHolo 12s linear infinite;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 8px #ff1a3c);
+  transition: all 0.3s ease;
 }
 
-.hologram-inner {
-  position: absolute;
-  inset: 14px;
-  border-radius: 50%;
-  border: 1px dashed rgba(255, 80, 100, 0.5);
-  animation: spinHoloRev 8s linear infinite;
-}
-
-@keyframes spinHolo {
-  0% { transform: translateX(-50%) rotateX(75deg) rotateZ(0deg); }
-  100% { transform: translateX(-50%) rotateX(75deg) rotateZ(360deg); }
-}
-
-@keyframes spinHoloRev {
-  0% { transform: rotateZ(360deg); }
-  100% { transform: rotateZ(0deg); }
+.layer-energy {
+  z-index: 35;
+  transform: translateZ(12px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 /* PARTICLES CANVAS */
 #particlesCanvas {
   position: absolute;
-  inset: -30px;
+  inset: -40px;
   pointer-events: none;
-  z-index: 24;
+  z-index: 28;
 }
 
-/* VISUAL STATE CLASSES */
-.state-idle .char-svg {
-  filter: drop-shadow(0 0 8px rgba(255, 26, 60, 0.25));
-}
+/* VISUAL STATE ANIMATION & FILTER RULES */
 
-.state-listening .layer-eyes svg #leftEye,
-.state-listening .layer-eyes svg #rightEye {
+/* 1. IDLE */
+.state-idle .layer-eyes img {
+  opacity: 0.85;
   filter: drop-shadow(0 0 8px #ff1a3c);
+  animation: eyeBreathe 4s ease-in-out infinite;
 }
-.state-listening .hologram-circle {
-  border-color: #ff3355;
-  box-shadow: 0 0 24px #ff3355;
-  animation-duration: 3s;
-}
-
-.state-thinking .layer-head {
-  transform: rotateZ(-2deg) translateY(2px);
-}
-.state-thinking .hologram-circle {
-  animation-duration: 2s;
+@keyframes eyeBreathe {
+  0%, 100% { opacity: 0.7; filter: drop-shadow(0 0 6px #ff1a3c); }
+  50% { opacity: 1.0; filter: drop-shadow(0 0 12px #ff1a3c); }
 }
 
-.state-executing .char-svg {
-  filter: drop-shadow(0 0 16px rgba(255, 26, 60, 0.7));
+/* 2. LISTENING */
+.state-listening .layer-eyes img {
+  opacity: 1.0;
+  filter: drop-shadow(0 0 16px #ff1a3c) brightness(1.6);
+  animation: eyePulseFast 1s infinite alternate;
 }
-.state-executing .hologram-circle {
-  border-color: #ff0033;
-  box-shadow: 0 0 35px #ff0033;
+.state-listening .layer-aura img {
+  filter: drop-shadow(0 0 25px #ff2a50);
+  animation-duration: 4s;
+}
+@keyframes eyePulseFast {
+  0% { transform: translateX(-50%) scale(0.95); }
+  100% { transform: translateX(-50%) scale(1.15); filter: drop-shadow(0 0 20px #ff2a50); }
+}
+
+/* 3. THINKING */
+.state-thinking .layer-character {
+  transform: translateZ(5px) rotateZ(-1.5deg);
+}
+.state-thinking .layer-eyes img {
+  opacity: 0.95;
+  filter: drop-shadow(0 0 14px #ff3355);
+  animation: eyePulseSlow 1.8s infinite alternate;
+}
+.state-thinking .layer-aura img {
+  animation-duration: 2.5s;
+}
+@keyframes eyePulseSlow {
+  0% { opacity: 0.6; }
+  100% { opacity: 1.0; }
+}
+
+/* 4. EXECUTING */
+.state-executing .asset-img {
+  filter: drop-shadow(0 0 18px rgba(255, 26, 60, 0.8));
+}
+.state-executing .layer-eyes img {
+  opacity: 1.0;
+  filter: drop-shadow(0 0 24px #ff0033) brightness(2.0);
+}
+.state-executing .layer-energy {
+  opacity: 0.8;
+  animation: energyPulse 1.2s infinite alternate;
+}
+.state-executing .layer-aura img {
+  filter: drop-shadow(0 0 35px #ff0033);
   animation-duration: 1.2s;
 }
-
-.state-speaking .hologram-circle {
-  animation: speakPulse 1.2s infinite alternate;
-}
-@keyframes speakPulse {
-  0% { transform: translateX(-50%) rotateX(75deg) scale(0.9); }
-  100% { transform: translateX(-50%) rotateX(75deg) scale(1.15); box-shadow: 0 0 30px #ff2a50; }
+@keyframes energyPulse {
+  0% { transform: translateZ(12px) scale(0.95); opacity: 0.5; }
+  100% { transform: translateZ(12px) scale(1.1); opacity: 0.9; }
 }
 
-.state-success .char-svg {
-  filter: drop-shadow(0 0 20px #ff1a3c);
+/* 5. SPEAKING */
+.state-speaking .layer-eyes img {
+  opacity: 1.0;
+  filter: drop-shadow(0 0 16px #ff1a3c);
+  animation: speakEyeBeat 0.5s infinite alternate;
+}
+.state-speaking .layer-aura img {
+  animation: speakWave 1.2s infinite alternate;
+}
+@keyframes speakEyeBeat {
+  0% { transform: translateX(-50%) scale(1.0); }
+  100% { transform: translateX(-50%) scale(1.15); filter: drop-shadow(0 0 20px #ff3b60); }
+}
+@keyframes speakWave {
+  0% { transform: rotateX(70deg) scale(0.9); }
+  100% { transform: rotateX(70deg) scale(1.2); filter: drop-shadow(0 0 28px #ff2a50); }
 }
 
+/* 6. SUCCESS */
+.state-success .asset-img {
+  filter: drop-shadow(0 0 25px #ff2a50);
+}
+.state-success .layer-eyes img {
+  opacity: 1.0;
+  filter: drop-shadow(0 0 28px #ff4d6d) brightness(2.2);
+}
+
+/* 7. ERROR */
 .state-error {
-  animation: errorShake 0.25s infinite;
+  animation: errorVibration 0.25s infinite;
 }
-@keyframes errorShake {
+.state-error .layer-eyes img {
+  opacity: 1.0;
+  filter: drop-shadow(0 0 22px #ff0000) hue-rotate(-20deg);
+}
+@keyframes errorVibration {
   0% { transform: translate(0, 0); }
-  25% { transform: translate(-2px, 1px); }
-  50% { transform: translate(2px, -1px); }
-  75% { transform: translate(-1px, -1px); }
+  25% { transform: translate(-3px, 1px); }
+  50% { transform: translate(3px, -1px); }
+  75% { transform: translate(-2px, -1px); }
   100% { transform: translate(0, 0); }
 }
 
-.state-offline {
-  filter: grayscale(0.85) brightness(0.4);
+/* 8. OFFLINE */
+.state-offline .asset-img {
+  filter: grayscale(85%) brightness(0.38) contrast(0.85);
 }
-.state-offline .hologram-circle {
-  display: none;
+.state-offline .layer-eyes img {
+  opacity: 0.15;
+  filter: brightness(0.2) grayscale(100%);
+}
+.state-offline .layer-aura {
+  display: none !important;
 }
 
 /* CONTEXT MENU */

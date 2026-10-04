@@ -1,4 +1,4 @@
-// IGRIS 2.5D Desktop Companion - Main Renderer Controller
+// IGRIS 2.5D Desktop Companion - Main Renderer Controller (Phase 13.5 Real Artwork Engine)
 
 (function() {
   const root = document.getElementById('companionRoot');
@@ -10,6 +10,14 @@
   const settingsModal = document.getElementById('settingsModal');
   const canvas = document.getElementById('particlesCanvas');
   const ctx = canvas.getContext('2d');
+
+  // Character Artwork Layers
+  const imgCharacter = document.getElementById('imgCharacter');
+  const imgEyes = document.getElementById('imgEyes');
+  const imgAura = document.getElementById('imgAura');
+  const imgCape = document.getElementById('imgCape');
+  const layerEyes = document.getElementById('layerEyes');
+  const layerCape = document.getElementById('layerCape');
 
   let currentSettings = {
     companionEnabled: true,
@@ -26,20 +34,42 @@
   let particles = [];
   let voiceEngine = null;
 
+  // Particle Textures
+  const sparkImg = new Image();
+  sparkImg.src = 'assets/igris/particles/sparks.png';
+  let sparkLoaded = false;
+  sparkImg.onload = () => { sparkLoaded = true; };
+
+  // Developer-only asset warning
+  const requiredAssetImages = [
+    { el: imgCharacter, name: 'Character State' },
+    { el: imgEyes, name: 'Eyes' },
+    { el: imgAura, name: 'Ground Aura' },
+    { el: imgCape, name: 'Cape' }
+  ];
+
+  requiredAssetImages.forEach(({ el, name }) => {
+    if (el) {
+      el.onerror = () => {
+        console.error(`[IGRIS Asset System Warning] Failed to load production asset for: ${name} (${el.src})`);
+      };
+    }
+  });
+
   // Particle System
   function initParticles() {
-    canvas.width = 240;
-    canvas.height = 340;
+    canvas.width = 260;
+    canvas.height = 360;
     particles = [];
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 28; i++) {
       particles.push({
-        x: canvas.width / 2 + (Math.random() - 0.5) * 80,
-        y: canvas.height - 30 + Math.random() * 20,
-        vx: (Math.random() - 0.5) * 1.2,
-        vy: -(0.8 + Math.random() * 1.8),
-        size: 1 + Math.random() * 2.2,
-        alpha: 0.8,
-        decay: 0.012 + Math.random() * 0.018
+        x: canvas.width / 2 + (Math.random() - 0.5) * 90,
+        y: canvas.height - 35 + Math.random() * 20,
+        vx: (Math.random() - 0.5) * 1.3,
+        vy: -(0.9 + Math.random() * 2.0),
+        size: 1.2 + Math.random() * 2.4,
+        alpha: 0.85,
+        decay: 0.012 + Math.random() * 0.016
       });
     }
   }
@@ -52,13 +82,13 @@
         p.y += p.vy;
         p.alpha -= p.decay;
         if (p.alpha <= 0) {
-          p.x = canvas.width / 2 + (Math.random() - 0.5) * 80;
-          p.y = canvas.height - 30 + Math.random() * 20;
-          p.alpha = 0.8;
+          p.x = canvas.width / 2 + (Math.random() - 0.5) * 90;
+          p.y = canvas.height - 35 + Math.random() * 20;
+          p.alpha = 0.85;
         }
         ctx.fillStyle = `rgba(255, 26, 60, ${p.alpha})`;
         ctx.shadowColor = '#ff1a3c';
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
@@ -67,10 +97,15 @@
     requestAnimationFrame(renderParticles);
   }
 
-  // State Management
+  // State Management & Real Artwork Switching
   function setState(state, message, ttsText) {
     currentState = state;
     
+    // Switch character state image to corresponding high-res artwork
+    if (imgCharacter) {
+      imgCharacter.src = `assets/igris/states/${state}/character.png`;
+    }
+
     // Update stage CSS classes
     stage.className = 'character-stage';
     if (currentSettings.animationEnabled && state !== 'offline') {
@@ -112,7 +147,7 @@
     }
   }
 
-  // 2.5D Parallax Mouse Tracking
+  // 2.5D Parallax Mouse Tracking (Multi-Layer Depth)
   document.addEventListener('mousemove', (e) => {
     if (!currentSettings.animationEnabled) return;
     const rect = stage.getBoundingClientRect();
@@ -125,11 +160,21 @@
     const tiltX = -deltaY * 12;
     const tiltY = deltaX * 12;
 
-    stage.style.transform = `perspective(700px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    stage.style.transform = `perspective(750px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+
+    // Independent layer parallax depth offsets
+    if (layerEyes) {
+      layerEyes.style.transform = `translateZ(25px) translateX(${deltaX * 4}px) translateY(${deltaY * 3}px)`;
+    }
+    if (layerCape) {
+      layerCape.style.transform = `translateZ(-8px) translateX(${-deltaX * 3}px)`;
+    }
   });
 
   document.addEventListener('mouseleave', () => {
-    stage.style.transform = 'perspective(700px) rotateX(0deg) rotateY(0deg)';
+    stage.style.transform = 'perspective(750px) rotateX(0deg) rotateY(0deg)';
+    if (layerEyes) layerEyes.style.transform = 'translateZ(25px)';
+    if (layerCape) layerCape.style.transform = 'translateZ(-8px)';
   });
 
   // Click & Double-click Interactions
