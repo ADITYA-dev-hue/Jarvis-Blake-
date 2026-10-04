@@ -31,7 +31,7 @@
       "output": "dist"
     },
     "win": {
-      "target": "dir",
+      "target": "nsis",
       "icon": "assets/igris/icon.png"
     },
     "files": [
