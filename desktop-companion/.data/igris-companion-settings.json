@@ -12,7 +12,7 @@
     "width": 240,
     "height": 380
   },
-  "serverUrl": "http://localhost:3000",
+  "serverUrl": "https://jarvis-blake.onrender.com",
   "voiceEnabled": true,
   "handsFreeEnabled": true,
   "wakeWord": "igris",

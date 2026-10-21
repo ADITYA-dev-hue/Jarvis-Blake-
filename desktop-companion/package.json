@@ -44,6 +44,7 @@
       "index.html",
       "styles.css",
       "package.json",
+      ".env",
       "assets/**/*",
       "node_modules/**/*"
     ]

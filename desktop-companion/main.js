@@ -135,7 +135,9 @@ function initSocketConnection() {
   socketClient = new CompanionSocketClient(settings.serverUrl, (eventType, data) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     
-    if (eventType === 'state-update') {
+    if (eventType === 'connection-state') {
+      mainWindow.webContents.send('companion:connection-state', data);
+    } else if (eventType === 'state-update') {
       mainWindow.webContents.send('companion:state-update', data);
     } else if (eventType === 'task-progress') {
       mainWindow.webContents.send('companion:task-progress', data);

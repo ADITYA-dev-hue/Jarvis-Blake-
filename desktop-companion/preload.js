@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('igrisCompanion', {
   restartConnection: () => ipcRenderer.invoke('companion:restart-connection'),
   
   // Event Listeners from Main Process / Socket.IO
+  onConnectionState: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('companion:connection-state', handler);
+    return () => ipcRenderer.removeListener('companion:connection-state', handler);
+  },
   onStateUpdate: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('companion:state-update', handler);

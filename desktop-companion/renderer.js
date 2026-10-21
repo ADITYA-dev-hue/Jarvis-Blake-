@@ -4,12 +4,23 @@
   const root = document.getElementById('companionRoot');
   const stage = document.getElementById('characterStage');
   const speechBubble = document.getElementById('speechBubble');
+  const bubbleConnectionBadge = document.getElementById('bubbleConnectionBadge');
   const bubbleBadge = document.getElementById('bubbleStateBadge');
   const bubbleContent = document.getElementById('bubbleContent');
   const contextMenu = document.getElementById('contextMenu');
   const settingsModal = document.getElementById('settingsModal');
   const canvas = document.getElementById('particlesCanvas');
   const ctx = canvas.getContext('2d');
+
+  let currentConnectionState = 'CONNECTING';
+
+  function setConnectionStatus(status) {
+    currentConnectionState = (status || 'connecting').toUpperCase();
+    if (bubbleConnectionBadge) {
+      bubbleConnectionBadge.textContent = currentConnectionState;
+      bubbleConnectionBadge.className = 'bubble-badge badge-connection ' + status.toLowerCase();
+    }
+  }
 
   // Character Artwork Layers
   const imgCharacter = document.getElementById('imgCharacter');
@@ -313,8 +324,34 @@
 
       root.className = `companion-root size-${currentSettings.size || 'medium'}`;
 
+      setConnectionStatus('connecting');
+
+      if (window.igrisCompanion.onConnectionState) {
+        window.igrisCompanion.onConnectionState((data) => {
+          if (!data || !data.state) return;
+          if (data.state === 'online') {
+            setConnectionStatus('online');
+            setState('idle', 'Connected to IGRIS server. Standing by, Commander.');
+          } else if (data.state === 'connecting') {
+            setConnectionStatus('connecting');
+          } else if (data.state === 'offline') {
+            setConnectionStatus('offline');
+            const safeErrMsg = data.error ? `Connection error: ${data.error}` : 'Disconnected from server.';
+            setState('offline', safeErrMsg);
+          }
+        });
+      }
+
       window.igrisCompanion.onStateUpdate((data) => {
         if (data && data.state) {
+          // If connection is online, prevent dropping to offline from minor agent disconnects
+          if (data.state === 'offline' && currentConnectionState === 'ONLINE') {
+            if (data.message && bubbleContent) {
+              bubbleContent.textContent = data.message;
+              showBubble(4000);
+            }
+            return;
+          }
           setState(data.state, data.message, data.ttsText);
         }
       });
@@ -328,7 +365,10 @@
 
       window.igrisCompanion.onAgentStatus((data) => {
         if (data && data.status === 'offline') {
-          setState('offline', 'Laptop agent offline.');
+          if (bubbleContent) {
+            bubbleContent.textContent = 'Laptop agent offline.';
+            showBubble(4000);
+          }
         }
       });
 
@@ -350,7 +390,7 @@
       );
     }
 
-    setState('idle', 'Standing by, Commander.');
+    setState('idle', 'Connecting to IGRIS server...');
   }
 
   window.addEventListener('DOMContentLoaded', initApp);

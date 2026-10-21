@@ -2,45 +2,84 @@ const { io } = require('socket.io-client');
 const fs = require('fs');
 const path = require('path');
 
-function getAuthToken() {
-  // Check process environment first
+const PRODUCTION_PHONE_TOKEN = 'JRUCJfoOgIDElEnUfzrC37tXFxe0lZ94Z_srWC_7RP0';
+const DEV_PHONE_TOKEN = 'jarvis_phone_dev_token_884192';
+
+function getAuthToken(serverUrl) {
+  // 1. Check process environment first
   if (process.env.IGRIS_PHONE_TOKEN) return process.env.IGRIS_PHONE_TOKEN;
   if (process.env.JARVIS_PHONE_TOKEN) return process.env.JARVIS_PHONE_TOKEN;
-  if (process.env.JARVIS_AUTH_TOKEN) return process.env.JARVIS_AUTH_TOKEN;
 
-  // Try reading from workspace .env securely if exists
-  const envPath = path.resolve(__dirname, '..', '.env');
-  if (fs.existsSync(envPath)) {
-    try {
-      const content = fs.readFileSync(envPath, 'utf8');
-      const lines = content.split('\n');
-      for (const line of lines) {
-        const match = line.match(/^\s*(IGRIS_PHONE_TOKEN|JARVIS_PHONE_TOKEN|JARVIS_AUTH_TOKEN)\s*=\s*(.+?)\s*$/);
-        if (match) {
-          return match[2].trim().replace(/^['"]|['"]$/g, '');
+  // Helper to safely read token from an env file without exposing contents
+  const readKeyFromEnv = (filePath, keys) => {
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        for (const line of content.split('\n')) {
+          for (const key of keys) {
+            const match = line.match(new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`));
+            if (match) {
+              return match[1].trim().replace(/^['"]|['"]$/g, '');
+            }
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
+    return null;
+  };
+
+  // 2. Try reading from desktop-companion local .env
+  const localEnvToken = readKeyFromEnv(path.resolve(__dirname, '.env'), ['IGRIS_PHONE_TOKEN', 'JARVIS_PHONE_TOKEN']);
+  if (localEnvToken) return localEnvToken;
+
+  // 3. Try reading from workspace root .env securely if exists
+  const envPath = path.resolve(__dirname, '..', '.env');
+  const workspaceToken = readKeyFromEnv(envPath, ['IGRIS_PHONE_TOKEN', 'JARVIS_PHONE_TOKEN']);
+  if (workspaceToken) return workspaceToken;
+
+  // 4. Try reading from phone-ui .env securely if exists
+  const phoneUiEnvPath = path.resolve(__dirname, '..', 'phone-ui', '.env');
+  const phoneUiToken = readKeyFromEnv(phoneUiEnvPath, ['VITE_IGRIS_PHONE_TOKEN', 'VITE_JARVIS_PHONE_TOKEN', 'IGRIS_PHONE_TOKEN']);
+  if (phoneUiToken) return phoneUiToken;
+
+  // 5. If serverUrl is explicitly localhost, use dev token
+  if (serverUrl && (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1'))) {
+    return DEV_PHONE_TOKEN;
   }
-  return 'jarvis-phone-secret-2026';
+
+  // 6. Default production token configured on Render server
+  return PRODUCTION_PHONE_TOKEN;
 }
 
 class CompanionSocketClient {
   constructor(serverUrl, onEventCallback) {
-    this.serverUrl = serverUrl || 'http://localhost:3000';
+    this.serverUrl = serverUrl || 'https://jarvis-blake.onrender.com';
     this.onEvent = onEventCallback || (() => {});
     this.socket = null;
-    this.token = getAuthToken();
+    this.token = getAuthToken(this.serverUrl);
     this.connected = false;
     this.agentOnline = false;
+    this.isExplicitlyClosed = false;
   }
 
   connect() {
+    this.isExplicitlyClosed = false;
+
+    // Ensure exactly ONE Socket.IO connection instance is created
     if (this.socket) {
-      this.socket.disconnect();
+      if (!this.socket.connected) {
+        console.log(`[IGRIS DESKTOP] Connecting to: ${this.serverUrl}`);
+        this.onEvent('connection-state', { state: 'connecting' });
+        this.socket.connect();
+      }
+      return;
     }
 
+    console.log(`[IGRIS DESKTOP] Connecting to: ${this.serverUrl}`);
+    this.onEvent('connection-state', { state: 'connecting' });
+
     this.socket = io(this.serverUrl, {
+      path: '/socket.io/',
       auth: {
         token: this.token,
         role: 'phone'
@@ -48,24 +87,35 @@ class CompanionSocketClient {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 10000,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       timeout: 10000
     });
 
     this.socket.on('connect', () => {
       this.connected = true;
+      console.log('[IGRIS DESKTOP] Socket connected');
+      this.onEvent('connection-state', { state: 'online' });
       this.onEvent('state-update', { state: 'idle', message: 'Connected to IGRIS server.' });
     });
 
     this.socket.on('disconnect', (reason) => {
       this.connected = false;
+      console.log(`[IGRIS DESKTOP] Socket disconnected: ${reason}`);
+      this.onEvent('connection-state', { state: 'offline', reason });
       this.onEvent('state-update', { state: 'offline', message: `Disconnected: ${reason}` });
     });
 
     this.socket.on('connect_error', (err) => {
       this.connected = false;
-      this.onEvent('state-update', { state: 'offline', message: `Connection error: ${err.message}` });
+      const safeErrorMsg = err && err.message ? err.message : 'Unknown connection error';
+      console.log(`[IGRIS DESKTOP] Socket connect_error: ${safeErrorMsg}`);
+      this.onEvent('connection-state', { state: 'offline', error: safeErrorMsg });
+      this.onEvent('state-update', { state: 'offline', message: `Connection error: ${safeErrorMsg}` });
+    });
+
+    this.socket.io.on('reconnect_attempt', () => {
+      this.onEvent('connection-state', { state: 'connecting' });
     });
 
     this.socket.on('agent_status', (data) => {
@@ -73,7 +123,7 @@ class CompanionSocketClient {
         this.agentOnline = (data.status === 'online');
         this.onEvent('agent-status', data);
         if (!this.agentOnline) {
-          this.onEvent('state-update', { state: 'offline', message: 'Laptop agent offline.' });
+          this.onEvent('state-update', { state: 'idle', message: 'Laptop agent offline.' });
         } else if (this.connected) {
           this.onEvent('state-update', { state: 'idle', message: 'Laptop agent online.' });
         }
@@ -145,6 +195,7 @@ class CompanionSocketClient {
   }
 
   disconnect() {
+    this.isExplicitlyClosed = true;
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
@@ -153,5 +204,6 @@ class CompanionSocketClient {
 }
 
 module.exports = {
-  CompanionSocketClient
+  CompanionSocketClient,
+  getAuthToken
 };

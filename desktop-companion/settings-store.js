@@ -4,6 +4,18 @@ const { app, screen } = require('electron');
 
 const SETTINGS_FILE_NAME = 'igris-companion-settings.json';
 
+const PRODUCTION_SERVER_URL = 'https://jarvis-blake.onrender.com';
+const DEV_SERVER_URL = 'http://localhost:3000';
+
+function getDefaultServerUrl() {
+  if (process.env.IGRIS_SERVER_URL) return process.env.IGRIS_SERVER_URL;
+  if (process.env.JARVIS_SERVER_URL) return process.env.JARVIS_SERVER_URL;
+  if (process.env.NODE_ENV === 'development' || process.env.IGRIS_DEV === 'true') {
+    return DEV_SERVER_URL;
+  }
+  return PRODUCTION_SERVER_URL;
+}
+
 const DEFAULT_SETTINGS = {
   companionEnabled: true,
   alwaysOnTop: true,
@@ -13,7 +25,7 @@ const DEFAULT_SETTINGS = {
   animationEnabled: true,
   rememberPosition: true,
   bounds: null, // { x, y, width, height }
-  serverUrl: process.env.IGRIS_SERVER_URL || process.env.JARVIS_SERVER_URL || 'http://localhost:3000',
+  serverUrl: getDefaultServerUrl(),
   voiceEnabled: true,
   handsFreeEnabled: true,
   wakeWord: 'igris',
@@ -38,7 +50,16 @@ class SettingsStore {
       if (fs.existsSync(this.filePath)) {
         const raw = fs.readFileSync(this.filePath, 'utf8');
         const parsed = JSON.parse(raw);
-        return { ...DEFAULT_SETTINGS, ...parsed };
+        const defaultUrl = getDefaultServerUrl();
+
+        // Migrate stale localhost server URL to production unless explicitly running in dev mode
+        if (parsed.serverUrl && (parsed.serverUrl.includes('localhost') || parsed.serverUrl.includes('127.0.0.1'))) {
+          if (process.env.NODE_ENV !== 'development' && process.env.IGRIS_DEV !== 'true') {
+            parsed.serverUrl = defaultUrl;
+          }
+        }
+
+        return { ...DEFAULT_SETTINGS, ...parsed, serverUrl: parsed.serverUrl || defaultUrl };
       }
     } catch (err) {
       console.warn('[SettingsStore] Failed to load settings, using defaults:', err.message);
