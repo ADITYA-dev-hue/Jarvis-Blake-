@@ -614,15 +614,20 @@ def set_task_progress_callback(cb: Optional[Callable[[int, int, str], None]]) ->
 
 
 def handle_type_text(params: Dict[str, Any]) -> Dict[str, Any]:
-    """Safely type Unicode text into the currently active Windows application.
+    """Safely type Unicode text into the approved target Windows application.
     
     Security:
     - Text must be a non-empty string.
     - Text length capped at MAX_TYPE_TEXT_LENGTH (1000 characters).
     - Null bytes strictly forbidden.
+    - Forbidden control characters rejected.
     - Does NOT execute text as a command or shell script.
-    - Pure Windows SendInput / keybd_event Unicode keystroke simulation.
+    - Target application must belong to the approved whitelist.
+    - Application window focus and readiness verified before typing.
+    - If window fails to focus, fails safely without typing blindly.
     """
+    import window_manager
+
     raw_text = params.get("text")
     if raw_text is None or not isinstance(raw_text, str):
         raise ValueError("Missing or invalid 'text' parameter. Expected a non-empty string.")
@@ -638,26 +643,80 @@ def handle_type_text(params: Dict[str, Any]) -> Dict[str, Any]:
     if "\x00" in raw_text:
         raise ValueError("Text contains forbidden null byte characters.")
 
-    # Safe Windows Unicode keystroke typing
+    if any(ord(c) < 32 and c not in ('\t', '\n', '\r') for c in raw_text):
+        raise ValueError("Text contains forbidden control characters.")
+
+    # Target application verification
+    raw_app = params.get("app") or params.get("app_name")
+    target_app: Optional[str] = None
+    if raw_app:
+        if not isinstance(raw_app, str):
+            raise ValueError("Parameter 'app' must be a string.")
+        candidate = raw_app.strip().lower()
+        if candidate not in WHITELISTED_APPS:
+            allowed = sorted(list(WHITELISTED_APPS.keys()))
+            raise PermissionError(
+                f"Application '{raw_app}' is not whitelisted for text input. Allowed: {', '.join(allowed)}"
+            )
+        target_app = candidate
+    else:
+        # If no explicit app parameter, check if Notepad or an allowlisted window is open
+        open_windows = window_manager._find_top_level_windows()
+        notepad_windows = [w for w in open_windows if w[1] == "notepad"]
+        if notepad_windows:
+            target_app = "notepad"
+        elif open_windows:
+            target_app = open_windows[0][1]
+
+    # Verify window focus and readiness
+    target_hwnd: Optional[int] = None
+    edit_hwnd: Optional[int] = None
+    if target_app:
+        focus_res = window_manager.ensure_app_focused(target_app, timeout_secs=5.0)
+        if not focus_res.get("success"):
+            raise RuntimeError(
+                focus_res.get("error", f"Target application '{target_app}' is not ready or could not be focused for text input.")
+            )
+        target_hwnd = focus_res.get("hwnd")
+        edit_hwnd = focus_res.get("edit_hwnd")
+
+    # Safe text input execution
     try:
         user32 = ctypes.windll.user32
-        KEYEVENTF_KEYUP = 0x0002
-        KEYEVENTF_UNICODE = 0x0004
 
-        for ch in raw_text:
-            code = ord(ch)
-            user32.keybd_event(0, code, KEYEVENTF_UNICODE, 0)
-            user32.keybd_event(0, code, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0)
-            time.sleep(0.01)
+        # Method A: For Notepad with direct Edit / RichEdit control, insert text via Win32 EM_REPLACESEL
+        if target_app == "notepad" and edit_hwnd:
+            user32.SetFocus(edit_hwnd)
+            # EM_REPLACESEL (0x00C2): wParam=1 (undoable), lParam=text
+            sent = user32.SendMessageW(edit_hwnd, 0x00C2, 1, raw_text)
+            if sent == 0 and len(raw_text) > 0:
+                KEYEVENTF_KEYUP = 0x0002
+                KEYEVENTF_UNICODE = 0x0004
+                for ch in raw_text:
+                    code = ord(ch)
+                    user32.keybd_event(0, code, KEYEVENTF_UNICODE, 0)
+                    user32.keybd_event(0, code, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0)
+                    time.sleep(0.01)
+        else:
+            # Method B: Pure Windows Unicode keystroke typing
+            KEYEVENTF_KEYUP = 0x0002
+            KEYEVENTF_UNICODE = 0x0004
+            for ch in raw_text:
+                code = ord(ch)
+                user32.keybd_event(0, code, KEYEVENTF_UNICODE, 0)
+                user32.keybd_event(0, code, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0)
+                time.sleep(0.01)
     except Exception as exc:
         raise RuntimeError(f"Failed to type text: {exc}")
 
     preview = raw_text[:40] + ("..." if len(raw_text) > 40 else "")
+    dest = target_app or "active window"
     return {
         "typed": True,
+        "app": dest,
         "length": len(raw_text),
         "preview": preview,
-        "message": f"Typed text successfully: '{preview}'."
+        "message": f"Typed text successfully into {dest}: '{preview}'."
     }
 
 
@@ -1038,9 +1097,15 @@ def handle_task(params: Dict[str, Any]) -> Dict[str, Any]:
 
     # 2. Sequential execution
     executed_steps = []
+    current_app_context: Optional[str] = None
     for i, step in enumerate(raw_steps):
         step_action = step["action"].strip().lower()
-        step_params = step.get("parameters", {})
+        step_params = dict(step.get("parameters", {}))
+
+        if step_action == "open_app":
+            current_app_context = step_params.get("app") or step_params.get("app_name")
+        elif step_action == "type_text" and current_app_context and not step_params.get("app"):
+            step_params["app"] = current_app_context
 
         if _task_progress_callback:
             try:
@@ -1192,9 +1257,10 @@ COMMAND_REGISTRY: Dict[str, CommandSpec] = {
     ),
     "type_text": CommandSpec(
         action="type_text",
-        description="Type text into the currently active Windows window.",
+        description="Type text into the currently active or specified Windows window.",
         executor=handle_type_text,
-        required_params=["text"]
+        required_params=["text"],
+        optional_params=["app"]
     ),
     "wait": CommandSpec(
         action="wait",

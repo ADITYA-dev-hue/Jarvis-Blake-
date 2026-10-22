@@ -187,7 +187,7 @@ Specific rules for parameters:
 - "get_file_info": parameters MUST have "path" (relative path in workspace)
 - "create_text_file": parameters MUST have "path" (ending with .txt, .md, .csv, .json) and optional "content"
 - "open_file": parameters MUST have "path" (allowed extension)
-- "type_text": parameters MUST have "text" (max 1000 chars)
+- "type_text": parameters MUST have "text" (max 1000 chars), optional "app" ("notepad", "calculator", "paint", "code", "chrome", "explorer")
 - "wait": parameters MUST have "milliseconds" (positive number <= 10000)
 - "search_web": parameters MUST have "query" (non-empty string)
 - "list_windows": parameters MUST be {}

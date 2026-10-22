@@ -350,7 +350,7 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
           { action: 'search_web', parameters: { query: searchQuery } },
           { action: 'open_app', parameters: { app: 'notepad' } },
           { action: 'wait', parameters: { milliseconds: 1000 } },
-          { action: 'type_text', parameters: { text: `${searchQuery} topics` } }
+          { action: 'type_text', parameters: { text: `${searchQuery} topics`, app: 'notepad' } }
         ]
       }
     };
@@ -372,7 +372,7 @@ function localSemanticInterpreter(text, conversationHistory = [], languagePrefer
         steps: [
           { action: 'open_app', parameters: { app: 'notepad' } },
           { action: 'wait', parameters: { milliseconds: 1000 } },
-          { action: 'type_text', parameters: { text: textToType } }
+          { action: 'type_text', parameters: { text: textToType, app: 'notepad' } }
         ]
       }
     };

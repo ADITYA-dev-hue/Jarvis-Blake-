@@ -15,10 +15,12 @@ Guarantees:
 
 import ctypes
 from ctypes import wintypes
+import time
 import psutil
 from typing import Any, Dict, List, Optional, Tuple
 
 user32 = ctypes.windll.user32
+kernel32 = ctypes.windll.kernel32
 
 # Win32 Window Show Commands
 SW_HIDE = 0
@@ -75,12 +77,20 @@ for _app_k, _spec in ALLOWED_APP_MAP.items():
     for _exe in _spec["executables"]:
         EXE_TO_APP_KEY[_exe.lower()] = _app_k
 
-# Excluded system class names for Windows Explorer (e.g. desktop surface, taskbar)
+# Excluded system class names for Windows Explorer (e.g. desktop surface, taskbar) and system/IME helper windows
 IGNORED_WINDOW_CLASSES = {
     "progman",
     "workerw",
     "shell_traywnd",
-    "shell_secondarytraywnd"
+    "shell_secondarytraywnd",
+    "gdi+ hook window class",
+    "cicerouiwndframe",
+    "msctfime ui",
+    "ime",
+    "touch tooltip window",
+    "uac input indicator",
+    "uac_inputindicatoroverlaywnd",
+    "inputsitewindowclass"
 }
 
 # Win32 EnumDesktopWindows callback type
@@ -127,23 +137,26 @@ def _find_top_level_windows() -> List[Tuple[int, str, str, str]]:
     Only includes windows corresponding to allowlisted applications.
     """
     raw_windows: List[int] = []
+    seen_hwnds = set()
 
     def enum_cb(hwnd: int, lparam: int) -> int:
-        raw_windows.append(hwnd)
+        if hwnd not in seen_hwnds:
+            seen_hwnds.add(hwnd)
+            raw_windows.append(hwnd)
         return 1
 
     cb = WNDENUMPROC(enum_cb)
 
-    # Attach to active interactive input desktop if available, fallback to EnumWindows
-    h_desk = user32.OpenInputDesktop(0, False, 0x0100)  # DESKTOP_READOBJECTS
-    if h_desk:
-        user32.EnumDesktopWindows(h_desk, cb, 0)
-    else:
-        user32.EnumWindows(cb, 0)
+    # First enumerate desktop windows via standard EnumWindows
+    user32.EnumWindows(cb, 0)
 
-    # Fallback to EnumWindows if input desktop yielded no raw windows
-    if not raw_windows:
-        user32.EnumWindows(cb, 0)
+    # Also check active interactive input desktop if available
+    try:
+        h_desk = user32.OpenInputDesktop(0, False, 0x0100)  # DESKTOP_READOBJECTS
+        if h_desk:
+            user32.EnumDesktopWindows(h_desk, cb, 0)
+    except Exception:
+        pass
 
     matched_windows: List[Tuple[int, str, str, str]] = []
 
@@ -183,6 +196,29 @@ def _find_top_level_windows() -> List[Tuple[int, str, str, str]]:
         matched_windows.append((hwnd, app_key, title, state))
 
     return matched_windows
+
+
+def _find_notepad_edit_control(target_hwnd: int, timeout_secs: float = 2.0) -> Optional[int]:
+    """Locate the edit control (Edit or RichEditD2DPT) inside a Notepad window."""
+    start_t = time.time()
+    while time.time() - start_t <= timeout_secs:
+        edit_hwnd: Optional[int] = None
+
+        def child_cb(hwnd: int, lparam: int) -> int:
+            nonlocal edit_hwnd
+            buf = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, buf, 256)
+            cname = buf.value.lower().strip()
+            if cname in ("edit", "richeditd2dpt"):
+                edit_hwnd = hwnd
+                return 0
+            return 1
+
+        user32.EnumChildWindows(target_hwnd, WNDENUMPROC(child_cb), 0)
+        if edit_hwnd:
+            return edit_hwnd
+        time.sleep(0.1)
+    return None
 
 
 # ==============================================================================
@@ -246,15 +282,44 @@ def focus_window(app: str) -> Dict[str, Any]:
     # Deterministic selection: Pick the first topmost/active window
     target_hwnd, _, target_title, target_state = matching[0]
 
+    # Attach input threads and unlock foreground
+    cur_fg = user32.GetForegroundWindow()
+    cur_thread = user32.GetWindowThreadProcessId(cur_fg, None)
+    target_thread = user32.GetWindowThreadProcessId(target_hwnd, None)
+    our_thread = kernel32.GetCurrentThreadId()
+
+    attached = False
+    if target_thread != our_thread:
+        user32.AttachThreadInput(our_thread, target_thread, True)
+    if cur_fg and cur_thread != target_thread:
+        user32.AttachThreadInput(cur_thread, target_thread, True)
+        attached = True
+
+    # Simulate Alt key to grant SetForegroundWindow permission
+    user32.keybd_event(0x12, 0, 0, 0)
+    user32.keybd_event(0x12, 0, 2, 0)
+
     # If minimized, restore it first
-    if target_state == "minimized":
+    if target_state == "minimized" or user32.IsIconic(target_hwnd):
         user32.ShowWindow(target_hwnd, SW_RESTORE)
     else:
         user32.ShowWindow(target_hwnd, SW_SHOW)
 
-    # Bring to top and set foreground
+    # Bring to top, set foreground, and set focus
     user32.BringWindowToTop(target_hwnd)
     user32.SetForegroundWindow(target_hwnd)
+    user32.SetFocus(target_hwnd)
+
+    # For Notepad, also focus the edit control if found
+    if clean_app == "notepad":
+        edit_h = _find_notepad_edit_control(target_hwnd, timeout_secs=0.5)
+        if edit_h:
+            user32.SetFocus(edit_h)
+
+    if target_thread != our_thread:
+        user32.AttachThreadInput(our_thread, target_thread, False)
+    if attached and cur_fg:
+        user32.AttachThreadInput(cur_thread, target_thread, False)
 
     return {
         "success": True,
@@ -262,6 +327,58 @@ def focus_window(app: str) -> Dict[str, Any]:
         "app": clean_app,
         "title": target_title,
         "message": f"{label} is now active."
+    }
+
+
+def ensure_app_focused(app: str, timeout_secs: float = 4.0) -> Dict[str, Any]:
+    """Wait for target application window to exist, restore, and focus it.
+    
+    Returns:
+    {
+        "success": True,
+        "app": clean_app,
+        "title": target_title,
+        "hwnd": target_hwnd,
+        "edit_hwnd": Optional[int] (for notepad)
+    }
+    or {"success": False, "error": ..., "app": clean_app}
+    """
+    clean_app = (app or "").strip().lower()
+    if clean_app not in ALLOWED_APP_MAP:
+        allowed = list(ALLOWED_APP_MAP.keys())
+        return {
+            "success": False,
+            "error": f"Application '{app}' is not in the allowed list. Allowed: {', '.join(allowed)}",
+            "app": clean_app
+        }
+
+    label = ALLOWED_APP_MAP[clean_app]["label"]
+    start_t = time.time()
+
+    while time.time() - start_t < timeout_secs:
+        matching = [item for item in _find_top_level_windows() if item[1] == clean_app]
+        if matching:
+            target_hwnd, _, target_title, target_state = matching[0]
+
+            # Focus window
+            focus_res = focus_window(clean_app)
+            if focus_res.get("success"):
+                edit_hwnd = None
+                if clean_app == "notepad":
+                    edit_hwnd = _find_notepad_edit_control(target_hwnd, timeout_secs=1.5)
+                return {
+                    "success": True,
+                    "app": clean_app,
+                    "title": target_title,
+                    "hwnd": target_hwnd,
+                    "edit_hwnd": edit_hwnd
+                }
+        time.sleep(0.15)
+
+    return {
+        "success": False,
+        "error": f"Target application '{label}' did not launch or become ready within {int(timeout_secs)}s.",
+        "app": clean_app
     }
 
 

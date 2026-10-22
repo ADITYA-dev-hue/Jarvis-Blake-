@@ -444,13 +444,27 @@ function validateCommand(parsed) {
       return { valid: false, error: "Text contains forbidden characters." };
     }
 
+    const validatedParams = { text: rawText };
+    const rawApp = parameters.app !== undefined ? parameters.app : parameters.app_name;
+    if (rawApp !== undefined && rawApp !== null) {
+      if (typeof rawApp !== 'string') {
+        return { valid: false, error: "Parameter 'app' must be a string." };
+      }
+      const appKey = rawApp.trim().toLowerCase();
+      if (!ALLOWED_APPS.has(appKey)) {
+        return {
+          valid: false,
+          error: `Application '${rawApp}' is not whitelisted. Allowed: ${Array.from(ALLOWED_APPS).join(', ')}`
+        };
+      }
+      validatedParams.app = appKey;
+    }
+
     return {
       valid: true,
       command: {
         action: 'type_text',
-        parameters: {
-          text: rawText
-        }
+        parameters: validatedParams
       }
     };
   }
