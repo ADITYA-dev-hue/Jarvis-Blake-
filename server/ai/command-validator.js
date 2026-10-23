@@ -39,7 +39,28 @@ const ALLOWED_ACTIONS = new Set([
   'summarize_file',
   'analyze_folder',
   'workspace_insights',
-  'list_supported_files'
+  'list_supported_files',
+  // Phase 14 - Spotify, Volume, Brightness & Smart Text
+  'open_spotify',
+  'spotify_search',
+  'spotify_play',
+  'spotify_next_track',
+  'spotify_previous_track',
+  'spotify_pause',
+  'spotify_resume',
+  'spotify_stop',
+  'set_system_volume',
+  'adjust_system_volume',
+  'get_system_volume',
+  'set_screen_brightness',
+  'adjust_screen_brightness',
+  'get_screen_brightness',
+  'open_notepad',
+  'write_text_file',
+  'append_text_file',
+  'save_text_file',
+  'open_text_file',
+  'verify_text_file'
 ]);
 
 // Maximum limits
@@ -893,6 +914,276 @@ function validateCommand(parsed) {
       command: {
         action: 'list_supported_files',
         parameters: {}
+      }
+    };
+  }
+
+  // 25. Phase 14 - Spotify Commands
+  if (action === 'open_spotify') {
+    const mode = typeof parameters.mode === 'string' && parameters.mode.toLowerCase() === 'app' ? 'app' : 'web';
+    return {
+      valid: true,
+      command: {
+        action: 'open_spotify',
+        parameters: { mode }
+      }
+    };
+  }
+
+  if (action === 'spotify_search') {
+    const rawQuery = parameters.query || parameters.q || parameters.search_term;
+    if (!rawQuery || typeof rawQuery !== 'string' || !rawQuery.trim()) {
+      return { valid: false, error: "Missing or invalid 'query' parameter." };
+    }
+    const cleanQuery = rawQuery.trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
+    if (/[\x00-\x1F\x7F]/.test(cleanQuery)) {
+      return { valid: false, error: "Search query contains forbidden control characters." };
+    }
+    return {
+      valid: true,
+      command: {
+        action: 'spotify_search',
+        parameters: { query: cleanQuery }
+      }
+    };
+  }
+
+  if (action === 'spotify_play') {
+    const cleanParams = {};
+    if (parameters.query && typeof parameters.query === 'string' && parameters.query.trim()) {
+      cleanParams.query = parameters.query.trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
+    }
+    return {
+      valid: true,
+      command: {
+        action: 'spotify_play',
+        parameters: cleanParams
+      }
+    };
+  }
+
+  if (action === 'spotify_next_track' || action === 'spotify_previous_track' || action === 'spotify_pause' || action === 'spotify_resume' || action === 'spotify_stop') {
+    return {
+      valid: true,
+      command: {
+        action,
+        parameters: {}
+      }
+    };
+  }
+
+  // 26. Phase 14 - System Volume Commands
+  if (action === 'set_system_volume') {
+    const levelRaw = parameters.level !== undefined ? parameters.level : (parameters.volume !== undefined ? parameters.volume : parameters.percentage);
+    const muteRaw = parameters.mute;
+
+    if (levelRaw === undefined && muteRaw === undefined) {
+      return { valid: false, error: "Missing required 'level' or 'mute' parameter." };
+    }
+
+    const cleanParams = {};
+    if (levelRaw !== undefined && levelRaw !== null) {
+      const parsedLevel = parseInt(levelRaw, 10);
+      if (isNaN(parsedLevel) || parsedLevel < 0 || parsedLevel > 100) {
+        return { valid: false, error: "Volume level must be an integer between 0 and 100." };
+      }
+      cleanParams.level = parsedLevel;
+    }
+
+    if (muteRaw !== undefined && muteRaw !== null) {
+      cleanParams.mute = Boolean(muteRaw);
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'set_system_volume',
+        parameters: cleanParams
+      }
+    };
+  }
+
+  if (action === 'adjust_system_volume') {
+    const deltaRaw = parameters.delta !== undefined ? parameters.delta : (parameters.amount !== undefined ? parameters.amount : 10);
+    const parsedDelta = parseInt(deltaRaw, 10);
+    if (isNaN(parsedDelta) || parsedDelta < -100 || parsedDelta > 100) {
+      return { valid: false, error: "Volume adjustment delta must be an integer between -100 and 100." };
+    }
+    return {
+      valid: true,
+      command: {
+        action: 'adjust_system_volume',
+        parameters: { delta: parsedDelta }
+      }
+    };
+  }
+
+  if (action === 'get_system_volume') {
+    return {
+      valid: true,
+      command: {
+        action: 'get_system_volume',
+        parameters: {}
+      }
+    };
+  }
+
+  // 27. Phase 14 - Screen Brightness Commands
+  if (action === 'set_screen_brightness') {
+    const levelRaw = parameters.level !== undefined ? parameters.level : (parameters.brightness !== undefined ? parameters.brightness : parameters.percentage);
+    if (levelRaw === undefined || levelRaw === null) {
+      return { valid: false, error: "Missing required 'level' parameter." };
+    }
+    const parsedLevel = parseInt(levelRaw, 10);
+    if (isNaN(parsedLevel) || parsedLevel < 0 || parsedLevel > 100) {
+      return { valid: false, error: "Brightness level must be an integer between 0 and 100." };
+    }
+    return {
+      valid: true,
+      command: {
+        action: 'set_screen_brightness',
+        parameters: { level: parsedLevel }
+      }
+    };
+  }
+
+  if (action === 'adjust_screen_brightness') {
+    const deltaRaw = parameters.delta !== undefined ? parameters.delta : (parameters.amount !== undefined ? parameters.amount : 10);
+    const parsedDelta = parseInt(deltaRaw, 10);
+    if (isNaN(parsedDelta) || parsedDelta < -100 || parsedDelta > 100) {
+      return { valid: false, error: "Brightness adjustment delta must be an integer between -100 and 100." };
+    }
+    return {
+      valid: true,
+      command: {
+        action: 'adjust_screen_brightness',
+        parameters: { delta: parsedDelta }
+      }
+    };
+  }
+
+  if (action === 'get_screen_brightness') {
+    return {
+      valid: true,
+      command: {
+        action: 'get_screen_brightness',
+        parameters: {}
+      }
+    };
+  }
+
+  // 28. Phase 14 - Notepad & Text File Automation Commands
+  if (action === 'open_notepad') {
+    return {
+      valid: true,
+      command: {
+        action: 'open_notepad',
+        parameters: {}
+      }
+    };
+  }
+
+  if (action === 'write_text_file') {
+    const rawPath = parameters.path || parameters.file_name || parameters.file_path;
+    const pathCheck = validateSafeWorkspacePath(rawPath, false);
+    if (!pathCheck.valid) return pathCheck;
+
+    const content = typeof parameters.content === 'string' ? parameters.content : '';
+    if (content.length > MAX_FILE_CONTENT_LENGTH) {
+      return { valid: false, error: `Content length exceeds maximum limit of ${MAX_FILE_CONTENT_LENGTH} characters.` };
+    }
+
+    const overwrite = Boolean(parameters.overwrite);
+
+    return {
+      valid: true,
+      command: {
+        action: 'write_text_file',
+        parameters: {
+          path: pathCheck.path,
+          content,
+          overwrite
+        }
+      }
+    };
+  }
+
+  if (action === 'append_text_file') {
+    const rawPath = parameters.path || parameters.file_name || parameters.file_path;
+    const pathCheck = validateSafeWorkspacePath(rawPath, false);
+    if (!pathCheck.valid) return pathCheck;
+
+    const content = typeof parameters.content === 'string' ? parameters.content : '';
+    if (content.length > MAX_FILE_CONTENT_LENGTH) {
+      return { valid: false, error: `Content length exceeds maximum limit of ${MAX_FILE_CONTENT_LENGTH} characters.` };
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'append_text_file',
+        parameters: {
+          path: pathCheck.path,
+          content
+        }
+      }
+    };
+  }
+
+  if (action === 'save_text_file') {
+    const rawPath = parameters.path || parameters.file_name || parameters.file_path;
+    const pathCheck = validateSafeWorkspacePath(rawPath, false);
+    if (!pathCheck.valid) return pathCheck;
+
+    const cleanParams = { path: pathCheck.path };
+    if (typeof parameters.content === 'string') {
+      if (parameters.content.length > MAX_FILE_CONTENT_LENGTH) {
+        return { valid: false, error: `Content length exceeds maximum limit of ${MAX_FILE_CONTENT_LENGTH} characters.` };
+      }
+      cleanParams.content = parameters.content;
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'save_text_file',
+        parameters: cleanParams
+      }
+    };
+  }
+
+  if (action === 'open_text_file') {
+    const rawPath = parameters.path || parameters.file_name || parameters.file_path;
+    const pathCheck = validateSafeWorkspacePath(rawPath, false);
+    if (!pathCheck.valid) return pathCheck;
+
+    return {
+      valid: true,
+      command: {
+        action: 'open_text_file',
+        parameters: {
+          path: pathCheck.path
+        }
+      }
+    };
+  }
+
+  if (action === 'verify_text_file') {
+    const rawPath = parameters.path || parameters.file_name || parameters.file_path;
+    const pathCheck = validateSafeWorkspacePath(rawPath, false);
+    if (!pathCheck.valid) return pathCheck;
+
+    const cleanParams = { path: pathCheck.path };
+    const expected = parameters.expected_content || parameters.content;
+    if (typeof expected === 'string') {
+      cleanParams.expected_content = expected.slice(0, MAX_FILE_CONTENT_LENGTH);
+    }
+
+    return {
+      valid: true,
+      command: {
+        action: 'verify_text_file',
+        parameters: cleanParams
       }
     };
   }

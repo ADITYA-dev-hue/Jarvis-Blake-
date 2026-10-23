@@ -626,6 +626,158 @@ function formatMultilingualResponse(action, parameters = {}, result = {}, userTe
     return `Supported formats include C, C++, Java, Python, JS/TS, PDFs, and data files (${total} matching files in workspace).`;
   }
 
+  // Phase 14 - Spotify Responses
+  if (action === 'open_spotify') {
+    if (lang === 'hinglish') return 'Spotify open ho gaya hai.';
+    if (lang === 'hi') return 'Spotify खुल गया है।';
+    return 'Spotify opened successfully in Google Chrome.';
+  }
+
+  if (action === 'spotify_search') {
+    const q = parameters?.query || result?.data?.query || 'music';
+    if (lang === 'hinglish') return `Spotify par "${q}" search kar diya gaya hai.`;
+    if (lang === 'hi') return `Spotify पर "${q}" खोजा जा रहा है।`;
+    return `Searching Spotify for "${q}".`;
+  }
+
+  if (action === 'spotify_play') {
+    const q = parameters?.query || result?.data?.query;
+    if (q) {
+      if (lang === 'hinglish') return `Spotify par "${q}" play kar rahe hain.`;
+      if (lang === 'hi') return `Spotify पर "${q}" चलाया जा रहा है।`;
+      return `Starting playback of "${q}" on Spotify.`;
+    }
+    if (lang === 'hinglish') return 'Spotify music play ho raha hai.';
+    if (lang === 'hi') return 'Spotify संगीत शुरू किया गया।';
+    return 'Starting playback on Spotify.';
+  }
+
+  if (action === 'spotify_next_track') {
+    if (lang === 'hinglish') return 'Agla gana play kar diya gaya hai.';
+    if (lang === 'hi') return 'अगला गाना शुरू किया गया।';
+    return 'Skipped to next track on Spotify.';
+  }
+
+  if (action === 'spotify_previous_track') {
+    if (lang === 'hinglish') return 'Pichhla gana play kar diya gaya hai.';
+    if (lang === 'hi') return 'पिछला गाना शुरू किया गया।';
+    return 'Playing previous track on Spotify.';
+  }
+
+  if (action === 'spotify_pause') {
+    if (lang === 'hinglish') return 'Spotify music pause kar diya gaya hai.';
+    if (lang === 'hi') return 'Spotify संगीत रोक दिया गया।';
+    return 'Spotify music paused.';
+  }
+
+  if (action === 'spotify_resume') {
+    if (lang === 'hinglish') return 'Spotify music resume ho gaya hai.';
+    if (lang === 'hi') return 'Spotify संगीत फिर से शुरू किया गया।';
+    return 'Resumed Spotify music.';
+  }
+
+  if (action === 'spotify_stop') {
+    if (lang === 'hinglish') return 'Spotify music band kar diya gaya hai.';
+    if (lang === 'hi') return 'Spotify संगीत बंद कर दिया गया।';
+    return 'Spotify music stopped.';
+  }
+
+  // Phase 14 - Volume Responses
+  if (action === 'set_system_volume') {
+    const vol = result?.data?.volume !== undefined ? result.data.volume : parameters?.level;
+    const isMuted = result?.data?.muted;
+    if (isMuted && vol === 0) {
+      if (lang === 'hinglish') return 'System mute kar diya gaya hai.';
+      if (lang === 'hi') return 'सिस्टम म्यूट कर दिया गया है।';
+      return 'System muted.';
+    }
+    if (lang === 'hinglish') return `System volume ${vol} percent par set ho gaya hai.`;
+    if (lang === 'hi') return `सिस्टम वॉल्यूम ${vol} प्रतिशत पर सेट कर दिया गया है।`;
+    return `System volume set to ${vol} percent.`;
+  }
+
+  if (action === 'adjust_system_volume') {
+    const vol = result?.data?.volume !== undefined ? result.data.volume : 'updated';
+    const delta = parameters?.delta || result?.data?.delta || 10;
+    const actionWord = delta > 0 ? (lang === 'hinglish' ? 'badha' : (lang === 'hi' ? 'बढ़ा' : 'increased')) : (lang === 'hinglish' ? 'kam' : (lang === 'hi' ? 'घटा' : 'decreased'));
+    if (lang === 'hinglish') return `System volume ${actionWord} kar ${vol} percent kar diya hai.`;
+    if (lang === 'hi') return `सिस्टम वॉल्यूम ${actionWord}कर ${vol} प्रतिशत कर दिया गया है।`;
+    return `System volume ${delta > 0 ? 'increased' : 'decreased'} to ${vol} percent.`;
+  }
+
+  if (action === 'get_system_volume') {
+    const vol = result?.data?.volume !== undefined ? result.data.volume : 'unknown';
+    const muted = result?.data?.muted ? ' (muted)' : '';
+    if (lang === 'hinglish') return `Abhi system volume ${vol} percent hai${muted}.`;
+    if (lang === 'hi') return `वर्तमान सिस्टम वॉल्यूम ${vol} प्रतिशत है${muted}।`;
+    return `Current system volume is ${vol} percent${muted}.`;
+  }
+
+  // Phase 14 - Brightness Responses
+  if (action === 'set_screen_brightness') {
+    const b = result?.data?.brightness !== undefined ? result.data.brightness : parameters?.level;
+    if (lang === 'hinglish') return `Screen brightness ${b} percent par set kar di gayi hai.`;
+    if (lang === 'hi') return `स्क्रीन चमक ${b} प्रतिशत पर सेट कर दी गई है।`;
+    return `Brightness set to ${b} percent.`;
+  }
+
+  if (action === 'adjust_screen_brightness') {
+    const b = result?.data?.brightness !== undefined ? result.data.brightness : 'updated';
+    const delta = parameters?.delta || result?.data?.delta || 10;
+    if (lang === 'hinglish') return `Screen brightness abhi ${b} percent kar di gayi hai.`;
+    if (lang === 'hi') return `स्क्रीन चमक अब ${b} प्रतिशत कर दी गई है।`;
+    return `Brightness set to ${b} percent.`;
+  }
+
+  if (action === 'get_screen_brightness') {
+    const b = result?.data?.brightness !== undefined ? result.data.brightness : 'unknown';
+    if (lang === 'hinglish') return `Screen brightness abhi ${b} percent hai.`;
+    if (lang === 'hi') return `वर्तमान स्क्रीन चमक ${b} प्रतिशत है।`;
+    return `Current screen brightness is ${b} percent.`;
+  }
+
+  // Phase 14 - Notepad & Text Automation Responses
+  if (action === 'open_notepad') {
+    if (lang === 'hinglish') return 'Notepad open ho gaya. Ab kya likhna hai?';
+    if (lang === 'hi') return 'नोटपैड खुल गया है। अब क्या लिखना है?';
+    return 'Notepad launched successfully.';
+  }
+
+  if (action === 'write_text_file') {
+    const fname = result?.data?.filename || parameters?.path || 'file';
+    if (lang === 'hinglish') return `Text "${fname}" mein likh diya gaya hai.`;
+    if (lang === 'hi') return `टेक्स्ट "${fname}" में लिख दिया गया है।`;
+    return `Text written successfully to ${fname}.`;
+  }
+
+  if (action === 'append_text_file') {
+    const fname = result?.data?.filename || parameters?.path || 'file';
+    if (lang === 'hinglish') return `Text "${fname}" mein append kar diya gaya hai.`;
+    if (lang === 'hi') return `टेक्स्ट "${fname}" में जोड़ दिया गया है।`;
+    return `Appended text to ${fname} successfully.`;
+  }
+
+  if (action === 'save_text_file') {
+    const fname = result?.data?.filename || parameters?.path || 'file';
+    if (lang === 'hinglish') return `File "${fname}" save ho gayi hai.`;
+    if (lang === 'hi') return `फ़ाइल "${fname}" सहेज ली गई है।`;
+    return `The text file has been saved as ${fname}.`;
+  }
+
+  if (action === 'open_text_file') {
+    const fname = result?.data?.filename || parameters?.path || 'file';
+    if (lang === 'hinglish') return `File "${fname}" Notepad mein open kar di gayi hai.`;
+    if (lang === 'hi') return `फ़ाइल "${fname}" नोटपैड में खोल दी गई है।`;
+    return `Opened ${fname} in Notepad.`;
+  }
+
+  if (action === 'verify_text_file') {
+    const fname = result?.data?.filename || parameters?.path || 'file';
+    if (lang === 'hinglish') return `File "${fname}" verify ho gayi hai.`;
+    if (lang === 'hi') return `फ़ाइल "${fname}" सत्यापित हो गई है।`;
+    return `File ${fname} verified successfully on disk.`;
+  }
+
   if (lang === 'hinglish') return 'Command successfully execute ho gaya.';
   if (lang === 'hi') return 'कमांड सफलतापूर्वक निष्पादित किया गया।';
   return 'Command executed successfully.';

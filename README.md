@@ -1,8 +1,8 @@
 # ⚔️ IGRIS (formerly J.A.R.V.I.S.)
 ### Autonomous Phone-to-Laptop AI Assistant & 2.5D Desktop Companion
 
-> **Current Status**: **Phases 1 through 13.5 Completed & Fully Verified**  
-> **Test Coverage**: **180+ Automated Tests Passing with 100% Success (Zero Regressions)**
+> **Current Status**: **Phases 1 through 14 Completed & Fully Verified**  
+> **Test Coverage**: **330+ Automated Tests Passing with 100% Success (Zero Regressions)**
 
 ---
 
@@ -42,11 +42,13 @@ The system operates across four primary decoupled layers communicating via authe
     ▼                                                             ▼
 💻 PYTHON LAPTOP AGENT                            🗡️ 2.5D DESKTOP COMPANION
 (Windows Background Service)                      (Electron Frameless Window)
-- Safe Command Registry (27+ actions)             - Multi-Layer Parallax Rig
+- Safe Command Registry (47+ actions)             - Multi-Layer Parallax Rig
 - Hardware Telemetry (CPU, RAM, Battery, Disk)    - 8 Real-Time Animation States
 - Win32 Window Manager (Focus, Min, Max)          - Transparent Canvas & Particles
-- Desktop Media Monitor (Privacy-First)           - Local Voice Synthesis & Audio
-- Smart Workspace Assistant (AST & PDF)           - Native Socket.IO Synchronization
+- Spotify & Multimedia Keyboard Controller        - Local Voice Synthesis & Audio
+- Master Volume & Screen Brightness Engine        - Native Socket.IO Synchronization
+- Smart Notepad & Text Automation (5-Step)        
+- Workspace Assistant (AST & PDF)                 
 - Safe Text Injection (Win32 EM_REPLACESEL)
 ```
 
@@ -173,6 +175,24 @@ sequenceDiagram
 - **Direct Edit Surface Targeting**: Discovers and targets child `RichEditD2DPT` / `Edit` controls using Win32 `EM_REPLACESEL` (`0x00C2`) and Unicode keystroke simulation.
 - **Anti-Blind-Typing Guard**: Immediately fails safely if the target window cannot be focused, preventing keystrokes from typing into unintended background applications.
 
+### Phase 14 — Spotify Control, Volume & Brightness Management, and Smart Text Automation
+- **Spotify Control via Google Chrome**:
+  - Reuses active Chrome tab (`open.spotify.com`) or launches new tab in Chrome (`open_spotify`).
+  - Search queries encoded into Spotify web search URLs (`spotify_search`).
+  - Media playback control via Windows virtual multimedia keys: play/resume (`spotify_play` / `spotify_resume`), pause (`spotify_pause`), skip next (`spotify_next`), previous track (`spotify_previous`), and stop (`spotify_stop`).
+- **Windows System Volume Control**:
+  - Direct hardware audio endpoint control via `pycaw.AudioUtilities` (`get_system_volume`, `set_system_volume`, `adjust_system_volume`).
+  - Supports absolute level settings (0–100%), relative incremental adjustments (+/- delta with auto-clamping), and mute/unmute toggling.
+- **Windows Screen Brightness Control**:
+  - Display backlight level management via `screen-brightness-control` (`get_screen_brightness`, `set_screen_brightness`, `adjust_screen_brightness`).
+  - Absolute (0–100%) and relative delta adjustments with graceful fallback diagnostics for unsupported displays.
+- **Intelligent Notepad & Text File Automation**:
+  - 5-step compound automated workflow: launch Notepad (`open_notepad`) ➔ wait ➔ type text ➔ save UTF-8 file (`save_text_file`) ➔ verify on disk (`verify_text_file`).
+  - Silent overwrite protection: `write_text_file` blocks accidental file replacement unless explicitly confirmed (`overwrite=True`).
+  - Multi-turn conversational file continuation: resolves filename and content seamlessly across consecutive turns.
+- **Trilingual Natural Language Understanding**:
+  - Comprehensive voice command coverage across **English**, **Hinglish**, and **Hindi** (Devanagari script) with spoken feedback.
+
 ---
 
 ## 📂 Project Directory Structure
@@ -188,9 +208,9 @@ d:\JARVIS\
 │   ├── styles.css               # Character shaders, crimson energy glows & CSS parallax
 │   └── package.json             # Desktop companion dependencies
 │
-├── laptop-agent/                # Phase 1–12: Python Windows Laptop Agent
+├── laptop-agent/                # Phase 1–14: Python Windows Laptop Agent
 │   ├── agent.py                 # Resilient Socket.IO agent client & event dispatcher
-│   ├── command_registry.py      # Central safe command registry & parameter validator
+│   ├── command_registry.py      # Central safe command registry & parameter validator (47 actions)
 │   ├── commands.py              # Command dispatcher & legacy safe command interface
 │   ├── config.py                # Environment resolver & workspace configuration
 │   ├── file_analyzer.py         # Phase 11: AST code symbol parser (Python, C++, Java, JS/TS)
@@ -198,11 +218,14 @@ d:\JARVIS\
 │   ├── media_monitor.py         # Phase 10: Windows Media Manager metadata extractor
 │   ├── pdf_analyzer.py          # Phase 11: Bounded safe PDF text & metadata extractor
 │   ├── sensitive_data.py        # Phase 11: Secret scanner & redaction engine
+│   ├── spotify_controller.py    # Phase 14: Chrome session reuse, URL queries & media keys
+│   ├── system_controls.py       # Phase 14: Windows audio endpoint volume & screen brightness
 │   ├── system_monitor.py        # Phase 7: Authoritative hardware telemetry (psutil)
+│   ├── text_automation.py       # Phase 14: Notepad launch, file I/O & overwrite protection
 │   ├── window_manager.py        # Phase 10: Win32 window manager & focus synchronizer
 │   ├── workspace_analyzer.py    # Phase 11: Codebase structure & metrics analyzer
 │   ├── audit.log                # Local tamper-resistant execution audit log
-│   └── requirements.txt         # Python dependencies (python-socketio, psutil, etc.)
+│   └── requirements.txt         # Python dependencies (python-socketio, psutil, pycaw, etc.)
 │
 ├── phone-ui/                    # Phase 2–12: Responsive Mobile Control Center
 │   ├── src/                     # React + TypeScript source code
@@ -231,7 +254,9 @@ d:\JARVIS\
 ├── start-agent.bat              # 1-Click launcher for Python Laptop Agent
 │
 ├── test-notepad-typing.py       # Automated Notepad text input & focus verification suite
-├── test-phase2.py to 13.5.py   # Complete regression test suites across all phases
+├── test-phase14.py              # Phase 14 Spotify, Volume, Brightness & Smart Text test suite
+├── test-phase2.py to 13.5.py   # Complete regression test suites across all prior phases
+├── run-all-tests.py             # Master regression test runner across all phases
 └── README.md                    # System architecture, phase roadmap & documentation
 ```
 
@@ -348,6 +373,14 @@ npm start
 
 ### English Commands
 - *"Open Notepad and write My name is Aditya Prakash."*
+- *"Open Notepad and write My name is Aditya Prakash then save as intro.txt."*
+- *"Open Spotify in Chrome."*
+- *"Play Race 3 song playlist on Spotify."*
+- *"Skip to the next song."*
+- *"Set volume to 50 percent."*
+- *"Increase volume by 10 percent."*
+- *"Mute system volume."*
+- *"Set brightness to 70 percent."*
 - *"What is my CPU usage?"*
 - *"Show open windows."*
 - *"Focus Chrome."*
@@ -357,6 +390,14 @@ npm start
 
 ### Hinglish Commands
 - *"Notepad kholo aur likho My name is Aditya Prakash."*
+- *"Notepad kholo aur likho My name is Aditya Prakash fir intro.txt mein save karo."*
+- *"Spotify kholo Chrome mein."*
+- *"Spotify par Arijit Singh ke gane bajao."*
+- *"Agla gana lagao."*
+- *"Volume 50 percent kar do."*
+- *"Volume 10 percent badhao."*
+- *"Volume mute karo."*
+- *"Brightness kam karo."*
 - *"Mera system status batao."*
 - *"Chrome samne lao."*
 - *"Kaun si windows open hain?"*
@@ -366,6 +407,13 @@ npm start
 
 ### Hindi Commands (हिन्दी)
 - *"Notepad खोलो और लिखो My name is Aditya Prakash."*
+- *"Notepad खोलो और लिखो My name is Aditya Prakash और intro.txt नाम से सुरक्षित करो।"*
+- *"Spotify खोलो और गाने बजाओ।"*
+- *"गाना रोको।"*
+- *"वॉल्यूम 50 प्रतिशत करो।"*
+- *"वॉल्यूम कम करो।"*
+- *"स्क्रीन ब्राइटनेस 70 प्रतिशत करो।"*
+- *"ब्राइटनेस बढ़ाओ।"*
 - *"सिस्टम का हाल बताओ।"*
 - *"Chrome पर फ़ोकस करो।"*
 - *"पायथन फ़ाइलें खोजो।"*
@@ -395,17 +443,23 @@ IGRIS features a comprehensive suite of automated end-to-end tests covering ever
 | [`test-phase12.py`](file:///d:/JARVIS/test-phase12.py) | Hands-Free Wake Word & Context Continuity | 40 | ✅ **40 / 40 PASSED** |
 | [`test-phase13.py`](file:///d:/JARVIS/test-phase13.py) | 2.5D Electron Desktop Companion Protocol | 22 | ✅ **22 / 22 PASSED** |
 | [`test-phase13.5.py`](file:///d:/JARVIS/test-phase13.5.py) | 2.5D Layered Character Asset Rig & Shaders | 20 | ✅ **20 / 20 PASSED** |
+| [`test-phase14.py`](file:///d:/JARVIS/test-phase14.py) | Spotify, Volume, Brightness & Smart Text Automation | 56 | ✅ **56 / 56 PASSED** |
 
 ### Running the Test Suites
-To run any phase verification suite, execute with Python:
+To run all verification suites automatically:
 ```powershell
+python run-all-tests.py
+```
+Or execute individual phase test suites:
+```powershell
+python test-phase14.py
 python test-notepad-typing.py
 python test-phase8.py
 python test-phase10.py
 python test-phase11.py
 python test-phase12.py
 ```
-*(All 180+ tests verify system invariants with zero regressions).*
+*(All 330+ tests verify system invariants with 100% success and zero regressions).*
 
 ---
 

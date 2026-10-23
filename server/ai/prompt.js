@@ -38,6 +38,26 @@ Allowed actions:
 25. analyze_folder
 26. workspace_insights
 27. list_supported_files
+28. open_spotify
+29. spotify_search
+30. spotify_play
+31. spotify_next_track
+32. spotify_previous_track
+33. spotify_pause
+34. spotify_resume
+35. spotify_stop
+36. set_system_volume
+37. adjust_system_volume
+38. get_system_volume
+39. set_screen_brightness
+40. adjust_screen_brightness
+41. get_screen_brightness
+42. open_notepad
+43. write_text_file
+44. append_text_file
+45. save_text_file
+46. open_text_file
+47. verify_text_file
 
 CRITICAL SECURITY RULES:
 - Never generate shell commands.
@@ -172,7 +192,7 @@ MULTI-STEP WORKFLOW RULES:
 
 Return ONLY valid JSON matching this exact structure:
 {
-  "action": "system_status" | "open_url" | "create_folder" | "open_app" | "open_folder" | "list_folder" | "get_file_info" | "create_text_file" | "open_file" | "type_text" | "wait" | "search_web" | "list_windows" | "focus_window" | "minimize_window" | "maximize_window" | "restore_window" | "media_status" | "search_files" | "read_file" | "search_file_content" | "analyze_file" | "summarize_file" | "analyze_folder" | "workspace_insights" | "list_supported_files" | "task" | "unsupported",
+  "action": "system_status" | "open_url" | "create_folder" | "open_app" | "open_folder" | "list_folder" | "get_file_info" | "create_text_file" | "open_file" | "type_text" | "wait" | "search_web" | "list_windows" | "focus_window" | "minimize_window" | "maximize_window" | "restore_window" | "media_status" | "search_files" | "read_file" | "search_file_content" | "analyze_file" | "summarize_file" | "analyze_folder" | "workspace_insights" | "list_supported_files" | "open_spotify" | "spotify_search" | "spotify_play" | "spotify_next_track" | "spotify_previous_track" | "spotify_pause" | "spotify_resume" | "spotify_stop" | "set_system_volume" | "adjust_system_volume" | "get_system_volume" | "set_screen_brightness" | "adjust_screen_brightness" | "get_screen_brightness" | "open_notepad" | "write_text_file" | "append_text_file" | "save_text_file" | "open_text_file" | "verify_text_file" | "task" | "unsupported",
   "parameters": {},
   "message": "Optional explanation or clarification"
 }
@@ -204,6 +224,26 @@ Specific rules for parameters:
 - "analyze_folder": optional "folder_path" (relative workspace path, or "" for workspace root)
 - "workspace_insights": optional "folder_path" (relative workspace path, or "" for workspace root)
 - "list_supported_files": parameters MUST be {}
+- "open_spotify": optional "mode" ("web" or "app")
+- "spotify_search": parameters MUST have "query" (search query string)
+- "spotify_play": optional "query" (song, artist, or playlist)
+- "spotify_next_track": parameters MUST be {}
+- "spotify_previous_track": parameters MUST be {}
+- "spotify_pause": parameters MUST be {}
+- "spotify_resume": parameters MUST be {}
+- "spotify_stop": parameters MUST be {}
+- "set_system_volume": optional "level" (number 0-100), optional "mute" (boolean)
+- "adjust_system_volume": parameters MUST have "delta" (number -100 to 100)
+- "get_system_volume": parameters MUST be {}
+- "set_screen_brightness": parameters MUST have "level" (number 0-100)
+- "adjust_screen_brightness": parameters MUST have "delta" (number -100 to 100)
+- "get_screen_brightness": parameters MUST be {}
+- "open_notepad": parameters MUST be {}
+- "write_text_file": parameters MUST have "path" (relative path in workspace), "content", optional "overwrite" (boolean)
+- "append_text_file": parameters MUST have "path" (relative path in workspace), "content"
+- "save_text_file": parameters MUST have "path" (relative path in workspace), optional "content"
+- "open_text_file": parameters MUST have "path" (relative path in workspace)
+- "verify_text_file": parameters MUST have "path" (relative path in workspace), optional "expected_content"
 - "task": parameters MUST have "steps" (array of up to 10 approved step objects, NEVER containing nested 'task')
 
 SMART FILE & WORKSPACE SECURITY RULES:

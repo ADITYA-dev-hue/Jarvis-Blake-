@@ -1051,6 +1051,170 @@ def handle_list_supported_files(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# ==============================================================================
+# PHASE 14 SAFE COMMAND HANDLERS
+# ==============================================================================
+
+# --- Spotify Handlers ---
+
+def handle_open_spotify(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Open Spotify Web Player in Chrome, or focus existing session."""
+    import spotify_controller
+    mode = params.get("mode", "web")
+    return spotify_controller.open_spotify(mode=mode)
+
+
+def handle_spotify_search(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Search Spotify for songs, artists, albums, or playlists."""
+    import spotify_controller
+    raw_query = params.get("query") or params.get("q") or params.get("search_term")
+    return spotify_controller.search_spotify(raw_query)
+
+
+def handle_spotify_play(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Start or resume Spotify playback, optionally with a query."""
+    import spotify_controller
+    raw_query = params.get("query") or params.get("q") or params.get("song") or params.get("playlist")
+    return spotify_controller.play_spotify(query=raw_query)
+
+
+def handle_spotify_next_track(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Skip to next song on Spotify."""
+    import spotify_controller
+    return spotify_controller.next_track()
+
+
+def handle_spotify_previous_track(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Return to previous song on Spotify."""
+    import spotify_controller
+    return spotify_controller.previous_track()
+
+
+def handle_spotify_pause(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Pause Spotify music."""
+    import spotify_controller
+    return spotify_controller.pause_music()
+
+
+def handle_spotify_resume(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Resume Spotify music."""
+    import spotify_controller
+    return spotify_controller.resume_music()
+
+
+def handle_spotify_stop(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Stop Spotify music."""
+    import spotify_controller
+    return spotify_controller.stop_music()
+
+
+# --- System Volume Handlers ---
+
+def handle_set_system_volume(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Set system master volume (0-100) or mute/unmute."""
+    import system_controls
+    level = params.get("level") if "level" in params else (params.get("volume") or params.get("percentage") or params.get("percent"))
+    mute = params.get("mute")
+    if level is None and mute is None:
+        raise ValueError("Missing 'level' or 'mute' parameter for set_system_volume.")
+    return system_controls.set_system_volume(level=level, mute=mute)
+
+
+def handle_adjust_system_volume(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Increase or decrease system volume by delta percentage."""
+    import system_controls
+    delta = params.get("delta") if "delta" in params else (params.get("amount") or params.get("step") or 10)
+    return system_controls.adjust_system_volume(delta=delta)
+
+
+def handle_get_system_volume(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Retrieve current system master volume percentage and mute status."""
+    import system_controls
+    return system_controls.get_system_volume()
+
+
+# --- Screen Brightness Handlers ---
+
+def handle_set_screen_brightness(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Set screen brightness percentage (0-100)."""
+    import system_controls
+    level = params.get("level") if "level" in params else (params.get("brightness") or params.get("percentage") or params.get("percent"))
+    if level is None:
+        raise ValueError("Missing 'level' parameter for set_screen_brightness.")
+    return system_controls.set_screen_brightness(level=level)
+
+
+def handle_adjust_screen_brightness(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Increase or decrease screen brightness by delta percentage."""
+    import system_controls
+    delta = params.get("delta") if "delta" in params else (params.get("amount") or params.get("step") or 10)
+    return system_controls.adjust_screen_brightness(delta=delta)
+
+
+def handle_get_screen_brightness(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Retrieve current display brightness percentage."""
+    import system_controls
+    return system_controls.get_screen_brightness()
+
+
+# --- Notepad & Text File Automation Handlers ---
+
+def handle_open_notepad(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Launch Windows Notepad or focus an existing window."""
+    import text_automation
+    return text_automation.open_notepad()
+
+
+def handle_write_text_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Write text content into an approved workspace file with overwrite safety."""
+    import text_automation
+    raw_path = params.get("path") or params.get("file_name") or params.get("file_path")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter.")
+    content = params.get("content", "")
+    overwrite = bool(params.get("overwrite", False))
+    return text_automation.write_text_file(path=raw_path, content=content, overwrite=overwrite)
+
+
+def handle_append_text_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Append text to an existing text file inside the workspace."""
+    import text_automation
+    raw_path = params.get("path") or params.get("file_name") or params.get("file_path")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter.")
+    content = params.get("content", "")
+    return text_automation.append_text_file(path=raw_path, content=content)
+
+
+def handle_save_text_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Save text file to workspace and verify persistence."""
+    import text_automation
+    raw_path = params.get("path") or params.get("file_name") or params.get("file_path")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter.")
+    content = params.get("content")
+    return text_automation.save_text_file(path=raw_path, content=content)
+
+
+def handle_open_text_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Open an existing text file in Windows Notepad."""
+    import text_automation
+    raw_path = params.get("path") or params.get("file_name") or params.get("file_path")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter.")
+    return text_automation.open_text_file(path=raw_path)
+
+
+def handle_verify_text_file(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Verify that a text file exists and contains expected content."""
+    import text_automation
+    raw_path = params.get("path") or params.get("file_name") or params.get("file_path")
+    if not raw_path or not isinstance(raw_path, str):
+        raise ValueError("Missing or invalid 'path' parameter.")
+    expected = params.get("expected_content") or params.get("content")
+    return text_automation.verify_text_file(path=raw_path, expected_content=expected)
+
+
 def handle_task(params: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a sequence of approved safe commands sequentially.
     
@@ -1175,7 +1339,11 @@ class CommandSpec:
         "name": ["name", "folder_name"],
         "app": ["app", "app_name"],
         "path": ["path", "folder_name", "file_name", "file_path", "folder_path", "folder"],
-        "query": ["query", "q", "search_term"]
+        "query": ["query", "q", "search_term", "song", "track", "playlist"],
+        "level": ["level", "volume", "brightness", "percentage", "percent", "val", "value"],
+        "delta": ["delta", "amount", "change", "step"],
+        "content": ["content", "text", "body", "data"],
+        "mode": ["mode", "type"]
     }
 
     FORBIDDEN_PARAMS = {
@@ -1363,6 +1531,130 @@ COMMAND_REGISTRY: Dict[str, CommandSpec] = {
         description="List supported file extensions and workspace files.",
         executor=handle_list_supported_files,
         required_params=[]
+    ),
+    # Phase 14 - Spotify
+    "open_spotify": CommandSpec(
+        action="open_spotify",
+        description="Open Spotify in Chrome or focus active session.",
+        executor=handle_open_spotify,
+        required_params=[]
+    ),
+    "spotify_search": CommandSpec(
+        action="spotify_search",
+        description="Search songs, artists, and playlists on Spotify.",
+        executor=handle_spotify_search,
+        required_params=["query"]
+    ),
+    "spotify_play": CommandSpec(
+        action="spotify_play",
+        description="Start or resume Spotify music playback.",
+        executor=handle_spotify_play,
+        required_params=[]
+    ),
+    "spotify_next_track": CommandSpec(
+        action="spotify_next_track",
+        description="Skip to the next song on Spotify.",
+        executor=handle_spotify_next_track,
+        required_params=[]
+    ),
+    "spotify_previous_track": CommandSpec(
+        action="spotify_previous_track",
+        description="Play the previous song on Spotify.",
+        executor=handle_spotify_previous_track,
+        required_params=[]
+    ),
+    "spotify_pause": CommandSpec(
+        action="spotify_pause",
+        description="Pause Spotify music.",
+        executor=handle_spotify_pause,
+        required_params=[]
+    ),
+    "spotify_resume": CommandSpec(
+        action="spotify_resume",
+        description="Resume Spotify music playback.",
+        executor=handle_spotify_resume,
+        required_params=[]
+    ),
+    "spotify_stop": CommandSpec(
+        action="spotify_stop",
+        description="Stop Spotify music playback.",
+        executor=handle_spotify_stop,
+        required_params=[]
+    ),
+    # Phase 14 - System Volume
+    "set_system_volume": CommandSpec(
+        action="set_system_volume",
+        description="Set Windows system volume (0-100) or mute state.",
+        executor=handle_set_system_volume,
+        required_params=[]
+    ),
+    "adjust_system_volume": CommandSpec(
+        action="adjust_system_volume",
+        description="Adjust system volume relative to current level.",
+        executor=handle_adjust_system_volume,
+        required_params=["delta"]
+    ),
+    "get_system_volume": CommandSpec(
+        action="get_system_volume",
+        description="Get current system volume level and mute state.",
+        executor=handle_get_system_volume,
+        required_params=[]
+    ),
+    # Phase 14 - Screen Brightness
+    "set_screen_brightness": CommandSpec(
+        action="set_screen_brightness",
+        description="Set screen brightness percentage (0-100).",
+        executor=handle_set_screen_brightness,
+        required_params=["level"]
+    ),
+    "adjust_screen_brightness": CommandSpec(
+        action="adjust_screen_brightness",
+        description="Adjust screen brightness relative to current level.",
+        executor=handle_adjust_screen_brightness,
+        required_params=["delta"]
+    ),
+    "get_screen_brightness": CommandSpec(
+        action="get_screen_brightness",
+        description="Get current screen brightness level.",
+        executor=handle_get_screen_brightness,
+        required_params=[]
+    ),
+    # Phase 14 - Notepad & Text File Automation
+    "open_notepad": CommandSpec(
+        action="open_notepad",
+        description="Launch Windows Notepad or focus an existing window.",
+        executor=handle_open_notepad,
+        required_params=[]
+    ),
+    "write_text_file": CommandSpec(
+        action="write_text_file",
+        description="Write text into a safe workspace file with overwrite protection.",
+        executor=handle_write_text_file,
+        required_params=["path"]
+    ),
+    "append_text_file": CommandSpec(
+        action="append_text_file",
+        description="Append text to an existing safe workspace text file.",
+        executor=handle_append_text_file,
+        required_params=["path"]
+    ),
+    "save_text_file": CommandSpec(
+        action="save_text_file",
+        description="Save text file to workspace and verify persistence.",
+        executor=handle_save_text_file,
+        required_params=["path"]
+    ),
+    "open_text_file": CommandSpec(
+        action="open_text_file",
+        description="Open an existing text file with Windows Notepad.",
+        executor=handle_open_text_file,
+        required_params=["path"]
+    ),
+    "verify_text_file": CommandSpec(
+        action="verify_text_file",
+        description="Verify that a text file exists on disk and content matches.",
+        executor=handle_verify_text_file,
+        required_params=["path"]
     )
 }
 
